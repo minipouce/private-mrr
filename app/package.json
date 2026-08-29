@@ -43,5 +43,8 @@
     "typecheck": "tsc --noEmit",
     "check:push": "node scripts/check-push.mjs"
   },
-  "private": true
+  "private": true,
+  "overrides": {
+    "react-dom": "19.2.3"
+  }
 }
