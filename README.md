@@ -95,6 +95,17 @@ n'est publié que sur `127.0.0.1`.
 **Les journaux** masquent systématiquement l'en-tête `Authorization` et la
 signature Stripe.
 
+**Les URL publiques ne divulguent rien.** `/health` ne renvoie que `{"ok":true}` :
+volumes, nombre de projets et appareils connectés sont derrière le jeton, sur
+`/api/status`. Les endpoints de webhook ne renvoient jamais de données, seulement
+un accusé de réception. Un en-tête `X-Robots-Tag: noindex, nofollow, noarchive`
+et un `robots.txt` restrictif écartent toute indexation.
+
+**Le quota de requêtes couvre aussi les webhooks.** Les exempter garantissait de
+ne perdre aucun événement lors d'un pic, mais laissait quiconque découvrant
+l'URL inonder l'endpoint. Le plafond est fixé très au-dessus du trafic réel de
+Stripe (1 000/min) tout en restant borné.
+
 ---
 
 ## Déploiement sur le VPS

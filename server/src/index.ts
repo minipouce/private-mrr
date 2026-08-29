@@ -45,6 +45,16 @@ async function boot(): Promise<void> {
     hsts: { maxAge: 31_536_000, includeSubDomains: true },
   });
 
+  // Aucune de ces URL n'a vocation à être indexée.
+  app.addHook('onSend', async (_request, reply, payload) => {
+    void reply.header('X-Robots-Tag', 'noindex, nofollow, noarchive');
+    return payload;
+  });
+
+  app.get('/robots.txt', async (_request, reply) =>
+    reply.type('text/plain').send('User-agent: *\nDisallow: /\n'),
+  );
+
   // L'app mobile n'est pas un navigateur et n'émet pas de requête cross-origin :
   // aucune origine web n'est autorisée par défaut.
   await app.register(cors, {
@@ -52,23 +62,21 @@ async function boot(): Promise<void> {
   });
 
   await app.register(rateLimit, {
-    max: Number(process.env.RATE_LIMIT_MAX ?? 300),
+    // Les webhooks Stripe arrivent en rafale lors d'un pic de paiements, mais
+    // une exemption totale laisserait n'importe qui inonder l'endpoint s'il en
+    // découvrait l'URL. Le plafond est donc très au-dessus du trafic réel de
+    // Stripe, tout en restant borné.
+    max: (request) =>
+      request.url.startsWith('/webhooks/stripe/')
+        ? Number(process.env.RATE_LIMIT_WEBHOOK ?? 1000)
+        : Number(process.env.RATE_LIMIT_MAX ?? 300),
     timeWindow: '1 minute',
-    // Les webhooks Stripe arrivent en rafale lors d'un pic de paiements :
-    // on les exclut du quota pour ne jamais perdre un événement.
-    allowList: (request) => request.url.startsWith('/webhooks/stripe/'),
   });
 
-  app.get('/health', async () => {
-    const row = db.prepare('SELECT COUNT(*) AS n FROM events').get() as { n: number };
-    const devices = db.prepare('SELECT COUNT(*) AS n FROM push_tokens').get() as { n: number };
-    return {
-      ok: true,
-      events: row.n,
-      projects: config.projects.length,
-      push: { configured: isPushConfigured(), devices: devices.n },
-    };
-  });
+  // Sonde publique volontairement muette : elle sert au conteneur et au
+  // reverse-proxy, et ne doit rien révéler à qui découvrirait l'URL. Le détail
+  // (volumes, nombre de projets, appareils) est exposé derrière le jeton.
+  app.get('/health', async () => ({ ok: true }));
 
   // Webhooks : plugin isolé, sans authentification par jeton (signature Stripe),
   // et avec son propre parseur de corps brut.

@@ -6,10 +6,22 @@ import { registerToken, removeToken, sendTestNotification } from '../push/index.
 import { backfillProject, reconcileProject } from '../stripe/backfill.js';
 import { MRR_STATUSES, TRIAL_STATUSES } from '../stripe/normalize.js';
 import { bus } from '../lib/bus.js';
+import { isPushConfigured } from '../push/index.js';
 
 const clamp = (v: number, min: number, max: number) => Math.min(Math.max(v, min), max);
 
 export function registerApi(app: FastifyInstance): void {
+  app.get('/api/status', async () => {
+    const events = db.prepare('SELECT COUNT(*) AS n FROM events').get() as { n: number };
+    const devices = db.prepare('SELECT COUNT(*) AS n FROM push_tokens').get() as { n: number };
+    return {
+      ok: true,
+      events: events.n,
+      projects: listProjects().length,
+      push: { configured: isPushConfigured(), devices: devices.n },
+    };
+  });
+
   app.get('/api/overview', async () => overview());
 
   app.get('/api/projects', async () => {
