@@ -19,6 +19,8 @@ export interface WidgetData {
   delta: string | null;
   deltaPositive: boolean;
   updatedAt: string;
+  /** Chiffres conservés d'une mise à jour antérieure, faute de réseau. */
+  stale?: boolean;
   error?: string;
 }
 
@@ -187,6 +189,14 @@ export function MrrWidget({
           <TextWidget text="CE MOIS" style={{ fontSize: 8, color: FAINT, fontWeight: '600' }} />
           <TextWidget text={data.mtd} style={{ fontSize: 13, color: DIM, fontWeight: '700' }} />
         </FlexWidget>
+
+        <FlexWidget style={{ width: 12 }} />
+
+        {/* Discret par construction : la fraîcheur se consulte, elle n'alerte pas. */}
+        <TextWidget
+          text={data.stale ? `${data.updatedAt} ·` : data.updatedAt}
+          style={{ fontSize: 8, color: FAINT, marginTop: 10 }}
+        />
       </FlexWidget>
     </Shell>
   );

@@ -5,6 +5,7 @@ import * as Device from 'expo-device';
 import { router } from 'expo-router';
 import { api } from '../api/client';
 import { loadConfig } from '../api/config';
+import { refreshWidget } from '../widget/refresh';
 
 // Une notification reçue app ouverte doit rester visible : sans cela, un
 // paiement qui tombe pendant la consultation passe totalement inaperçu.
@@ -121,6 +122,16 @@ export function usePush() {
 
   useEffect(() => {
     void ensureChannels();
+  }, []);
+
+  // Une notification signale précisément le moment où les chiffres changent :
+  // c'est l'occasion la plus utile de redessiner le widget, bien plus que le
+  // cycle de trente minutes imposé par Android.
+  useEffect(() => {
+    const sub = Notifications.addNotificationReceivedListener(() => {
+      void refreshWidget();
+    });
+    return () => sub.remove();
   }, []);
 
   // Tap sur une notification : ouvre directement le projet concerné.
