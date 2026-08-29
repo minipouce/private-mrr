@@ -401,13 +401,6 @@ That is the part I cannot guess.
 
 [X · @TBerguer](https://x.com/TBerguer) · [LinkedIn](https://www.linkedin.com/in/tristanberguer/)
 
-<a href="https://buska.io/?utm_source=github&amp;utm_medium=readme&amp;utm_campaign=private-mrr">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/brand/buska-dark.png">
-    <img src="docs/brand/buska.png" alt="Buska.io" height="44">
-  </picture>
-</a>
-
 I run several SaaS products, which is how this one came to exist: eight Stripe
 accounts and no good way to see them at once. One of those products is
 [**Buska.io**](https://buska.io/?utm_source=github&utm_medium=readme&utm_campaign=private-mrr),

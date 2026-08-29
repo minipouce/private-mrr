@@ -1,2 +1,4 @@
 # Adds a "Sponsor" button to the repository. `custom` accepts up to four URLs.
-custom: ["https://buska.io/?utm_source=github&utm_medium=sponsor_button&utm_campaign=private-mrr"]
+# Deliberately untracked: GitHub renders the full URL in the sidebar, and a
+# query string there reads as clutter. The README link carries the UTM instead.
+custom: ["https://buska.io"]
