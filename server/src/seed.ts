@@ -1,6 +1,10 @@
 /**
- * Génère un jeu de données de démonstration réaliste : 8 projets, 24 mois
- * d'historique, croissance, upgrades et attrition.
+ * Génère un jeu de données de démonstration réaliste : 24 mois d'historique,
+ * croissance, changements de formule et attrition.
+ *
+ * Les noms de projets sont ceux de l'auteur, ce qui rend les captures d'écran
+ * plus parlantes — mais **tous les montants sont fabriqués**. Aucun chiffre ici
+ * ne reflète un revenu réel, et la documentation le signale explicitement.
  *
  *   npm run seed            -> alimente la base (ajoute aux données existantes)
  *   npm run seed -- --reset -> vide d'abord les tables
@@ -27,14 +31,12 @@ const between = (min: number, max: number) => min + rand() * (max - min);
 const sec = (d: Date) => Math.floor(d.getTime() / 1000);
 
 const DEMO_PROJECTS = [
-  { id: 'inboxly',    name: 'Inboxly',     color: '#6366f1', subs: 340, plans: [1900, 4900, 9900] },
-  { id: 'pagecraft',  name: 'PageCraft',   color: '#10b981', subs: 210, plans: [900, 2900, 7900] },
-  { id: 'metricbase', name: 'MetricBase',  color: '#f59e0b', subs: 95,  plans: [4900, 14900, 29900] },
-  { id: 'snapform',   name: 'SnapForm',    color: '#ec4899', subs: 480, plans: [500, 1500, 3900] },
-  { id: 'deployr',    name: 'Deployr',     color: '#06b6d4', subs: 62,  plans: [9900, 24900, 49900] },
-  { id: 'lexiq',      name: 'Lexiq',       color: '#8b5cf6', subs: 155, plans: [1200, 2900, 5900] },
-  { id: 'orbitcrm',   name: 'OrbitCRM',    color: '#ef4444', subs: 88,  plans: [3900, 8900, 19900] },
-  { id: 'tinyhost',   name: 'TinyHost',    color: '#14b8a6', subs: 275, plans: [700, 1900, 4900] },
+  { id: 'buska',      name: 'Buska.io',     color: '#6366f1', subs: 340, plans: [1900, 4900, 9900] },
+  { id: 'presspilot', name: 'Presspilot.io', color: '#10b981', subs: 210, plans: [900, 2900, 7900] },
+  { id: 'hireeko',    name: 'hireeko.com',  color: '#f59e0b', subs: 95,  plans: [4900, 14900, 29900] },
+  { id: 'atyla',      name: 'Atyla.io',     color: '#ec4899', subs: 480, plans: [500, 1500, 3900] },
+  { id: 'senthor',    name: 'Senthor.io',   color: '#06b6d4', subs: 62,  plans: [9900, 24900, 49900] },
+  { id: 'uwait',      name: 'uwait.co',     color: '#8b5cf6', subs: 155, plans: [1200, 2900, 5900] },
 ] as const;
 
 const FIRST_NAMES = ['Camille','Julien','Sofia','Marc','Léa','Thomas','Nadia','Hugo','Elena','Karim','Chloé','Antoine','Inès','Lucas','Amina','Paul'];

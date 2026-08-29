@@ -5,6 +5,7 @@ import { money, moneyCompact, percent, signed } from '../lib/format';
 import type { Metrics } from '../api/types';
 import { ProjectLogo } from './ProjectLogo';
 import { GoalBar } from './GoalBar';
+import { t, plural } from '../i18n';
 
 /**
  * Carte de projet : MRR en vedette, part du total en barre, et le mouvement
@@ -39,7 +40,8 @@ export function ProjectCard({
           </Text>
         </View>
         <Text style={styles.subs}>
-          {metrics.activeSubscribers} abonné{metrics.activeSubscribers > 1 ? 's' : ''}
+          {metrics.activeSubscribers}{' '}
+          {plural(metrics.activeSubscribers, 'subscriber', 'subscribers')}
         </Text>
       </View>
 
@@ -54,7 +56,8 @@ export function ProjectCard({
         <View style={styles.side}>
           <Text style={styles.sideValue}>{moneyCompact(metrics.mtdCents, metrics.currency)}</Text>
           <Text style={styles.sideLabel}>
-            ce mois {metrics.mtdVsPrevPct !== null ? `· ${percent(metrics.mtdVsPrevPct)}` : ''}
+            {t('thisMonth').toLowerCase()}
+            {metrics.mtdVsPrevPct !== null ? ` · ${percent(metrics.mtdVsPrevPct)}` : ''}
           </Text>
         </View>
       </View>
