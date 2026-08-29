@@ -1,0 +1,16 @@
+node_modules/
+dist/
+data/
+.expo/
+android/
+ios/
+credentials/
+*.keystore
+*.jks
+.env
+.env.*
+!.env.example
+google-services.json
+*.log
+.DS_Store
+private-mrr-server.tar.gz

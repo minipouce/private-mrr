@@ -1,0 +1,28 @@
+# Extrait à intégrer au Caddyfile existant de ton VPS.
+# Caddy obtient et renouvelle le certificat Let's Encrypt automatiquement.
+
+mrr.tondomaine.com {
+    encode gzip
+
+    # Le flux SSE ne doit jamais être mis en tampon, sinon les événements
+    # arrivent par paquets au lieu d'arriver en direct.
+    @stream path /api/stream
+    reverse_proxy @stream 127.0.0.1:8791 {
+        flush_interval -1
+    }
+
+    reverse_proxy 127.0.0.1:8791
+
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        Referrer-Policy "no-referrer"
+        -Server
+    }
+
+    log {
+        output file /var/log/caddy/mrr.log
+        format json
+    }
+}

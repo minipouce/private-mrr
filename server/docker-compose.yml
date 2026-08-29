@@ -1,0 +1,36 @@
+services:
+  mrr:
+    build: .
+    container_name: mrr-server
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: 8791
+      DB_PATH: /data/mrr.db
+      TZ: Europe/Paris
+      FCM_SERVICE_ACCOUNT_PATH: /run/secrets/fcm-service-account.json
+    volumes:
+      - mrr-data:/data
+      # Clé Firebase montée en lecture seule : elle n'entre jamais dans l'image,
+      # ce qui éviterait qu'elle se retrouve dans un registre ou un cache de couche.
+      - ./credentials/fcm-service-account.json:/run/secrets/fcm-service-account.json:ro
+    # Publié uniquement sur la boucle locale : le conteneur n'est joignable
+    # que par le reverse-proxy de l'hôte, jamais directement depuis Internet.
+    ports:
+      - "127.0.0.1:8791:8791"
+    security_opt:
+      - no-new-privileges:true
+    # Le seul chemin devant rester inscriptible est le volume de données.
+    read_only: true
+    tmpfs:
+      - /tmp
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  mrr-data:
