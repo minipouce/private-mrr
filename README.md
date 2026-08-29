@@ -401,5 +401,11 @@ That is the part I cannot guess.
 
 [X · @TBerguer](https://x.com/TBerguer) · [LinkedIn](https://www.linkedin.com/in/tristanberguer/)
 
+I run several SaaS products, which is how this one came to exist: eight Stripe
+accounts and no good way to see them at once. One of those products is
+[Buska.io](https://buska.io), which monitors the web for the moments people
+describe the problem you solve, so you can reach them while they are still
+looking. If this app is useful to you, that one might be too.
+
 Released under the [MIT License](LICENSE). Use it, fork it, sell what you build
 with it.
