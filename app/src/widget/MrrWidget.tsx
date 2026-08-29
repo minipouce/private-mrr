@@ -32,12 +32,20 @@ const NEGATIVE = '#FF5C7A';
 
 type Density = 'small' | 'medium' | 'large';
 
-/** Deux seuils suffisent : la hauteur décide, la largeur n'ajoute que du confort. */
+/**
+ * Densité d'information adaptée à la place disponible.
+ *
+ * En portrait, Android rapporte `OPTION_APPWIDGET_MAX_HEIGHT`, qui englobe les
+ * marges du lanceur : la surface réellement dessinable est sensiblement plus
+ * petite que la valeur annoncée. Les seuils intègrent donc une réserve
+ * confortable. Surestimer la place tronque le contenu ; la sous-estimer donne
+ * un widget aéré — le second défaut est bien moins gênant que le premier.
+ */
 function densityFor(width?: number, height?: number): Density {
-  const h = height ?? 110;
+  const h = height ?? 90;
   const w = width ?? 180;
-  if (h < 80) return 'small';
-  if (h < 130 || w < 150) return 'medium';
+  if (h < 110) return 'small';
+  if (h < 175 || w < 170) return 'medium';
   return 'large';
 }
 
@@ -83,7 +91,7 @@ export function MrrWidget({
   // Format le plus dense : le seul chiffre qui compte, en grand.
   if (density === 'small') {
     return (
-      <Shell padding={12}>
+      <Shell padding={10}>
         <FlexWidget style={{ flexDirection: 'row', alignItems: 'center' }}>
           <TextWidget text={data.mrr} style={{ fontSize: 22, color: TEXT, fontWeight: '700' }} />
           <FlexWidget style={{ width: 8 }} />
@@ -109,65 +117,58 @@ export function MrrWidget({
 
   if (density === 'medium') {
     return (
-      <Shell padding={14}>
+      <Shell padding={12}>
         <TextWidget
           text="MRR CONSOLIDÉ"
           style={{ fontSize: 8, color: FAINT, fontWeight: '600', letterSpacing: 1 }}
         />
         <TextWidget
           text={data.mrr}
-          style={{ fontSize: 26, color: TEXT, fontWeight: '700', marginTop: 2 }}
+          style={{ fontSize: 24, color: TEXT, fontWeight: '700' }}
         />
-        <FlexWidget style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+        <FlexWidget style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
           <TextWidget
             text={data.today}
-            style={{ fontSize: 12, color: POSITIVE, fontWeight: '700' }}
+            style={{ fontSize: 11, color: POSITIVE, fontWeight: '700' }}
           />
-          <FlexWidget style={{ width: 6 }} />
+          <FlexWidget style={{ width: 5 }} />
           <TextWidget text="aujourd'hui" style={{ fontSize: 9, color: FAINT }} />
         </FlexWidget>
       </Shell>
     );
   }
 
+  // `justifyContent: 'space-between'` étirait le contenu sur toute la hauteur
+  // supposée : dès que la hauteur réelle était moindre, le bas se retrouvait
+  // hors cadre. Un empilement naturel se contente de la place qu'il occupe.
   return (
-    <FlexWidget
-      clickAction="OPEN_APP"
-      style={{
-        height: 'match_parent',
-        width: 'match_parent',
-        backgroundColor: BG,
-        borderRadius: 24,
-        padding: 16,
-        flexDirection: 'column',
-        justifyContent: 'space-between',
-      }}
-    >
+    <Shell padding={14}>
       <TextWidget
         text="MRR CONSOLIDÉ"
         style={{ fontSize: 9, color: FAINT, fontWeight: '600', letterSpacing: 1 }}
       />
 
-      <FlexWidget style={{ flexDirection: 'column' }}>
-        <TextWidget text={data.mrr} style={{ fontSize: 30, color: TEXT, fontWeight: '700' }} />
-        {data.delta && (
-          <TextWidget
-            text={data.delta}
-            style={{
-              fontSize: 11,
-              color: data.deltaPositive ? POSITIVE : NEGATIVE,
-              fontWeight: '600',
-              marginTop: 1,
-            }}
-          />
-        )}
-      </FlexWidget>
+      <TextWidget
+        text={data.mrr}
+        style={{ fontSize: 28, color: TEXT, fontWeight: '700', marginTop: 1 }}
+      />
+
+      {data.delta && (
+        <TextWidget
+          text={data.delta}
+          style={{
+            fontSize: 10,
+            color: data.deltaPositive ? POSITIVE : NEGATIVE,
+            fontWeight: '600',
+          }}
+        />
+      )}
 
       <FlexWidget
         style={{
           flexDirection: 'row',
-          marginTop: 10,
-          paddingTop: 10,
+          marginTop: 8,
+          paddingTop: 8,
           borderTopWidth: 1,
           borderTopColor: BORDER,
         }}
@@ -176,7 +177,7 @@ export function MrrWidget({
           <TextWidget text="AUJOURD'HUI" style={{ fontSize: 8, color: FAINT, fontWeight: '600' }} />
           <TextWidget
             text={data.today}
-            style={{ fontSize: 14, color: POSITIVE, fontWeight: '700' }}
+            style={{ fontSize: 13, color: POSITIVE, fontWeight: '700' }}
           />
         </FlexWidget>
 
@@ -184,11 +185,9 @@ export function MrrWidget({
 
         <FlexWidget style={{ flexDirection: 'column' }}>
           <TextWidget text="CE MOIS" style={{ fontSize: 8, color: FAINT, fontWeight: '600' }} />
-          <TextWidget text={data.mtd} style={{ fontSize: 14, color: DIM, fontWeight: '700' }} />
+          <TextWidget text={data.mtd} style={{ fontSize: 13, color: DIM, fontWeight: '700' }} />
         </FlexWidget>
       </FlexWidget>
-
-      <TextWidget text={data.updatedAt} style={{ fontSize: 8, color: FAINT, marginTop: 6 }} />
-    </FlexWidget>
+    </Shell>
   );
 }
