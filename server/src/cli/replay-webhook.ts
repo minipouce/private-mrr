@@ -1,12 +1,12 @@
 /**
- * Rejoue un vrai encaissement Stripe sous forme de webhook signé.
+ * Replays a real Stripe payment as a signed webhook.
  *
- *   npm run replay -- <identifiant-projet>
+ *   npm run replay -- <project-id>
  *
- * Récupère une facture réelle du compte, en retire la trace locale, puis
- * réémet `invoice.paid` et `charge.succeeded` exactement comme Stripe le ferait.
- * Valide donc le chemin d'ingestion sur des charges utiles authentiques, et
- * surtout la déduplication entre la facture et sa charge.
+ * Fetches a genuine invoice from the account, removes its local row, then
+ * re-emits `invoice.paid` and `charge.succeeded` exactly as Stripe would. This
+ * exercises the ingestion path on authentic payloads, and above all the
+ * deduplication between an invoice and its charge.
  */
 import 'dotenv/config';
 import Stripe from 'stripe';
@@ -53,7 +53,7 @@ function post(type: string, object: unknown) {
   });
 }
 
-// Facture réelle la plus récente, avec son abonnement et son intent.
+// Most recent real invoice, with its subscription and payment intent.
 const invoice = (await stripe.invoices.list({ status: 'paid', limit: 1, expand: ['data.payments'] })).data[0]!;
 const raw = invoice as any;
 const intent = raw.payments?.data?.[0]?.payment?.payment_intent as string | undefined;
@@ -63,7 +63,7 @@ console.log('  amount        :', (invoice.amount_paid / 100).toFixed(2), invoice
 console.log('  subscription  :', raw.parent?.subscription_details?.subscription ?? 'aucun');
 console.log('  payment intent:', intent ?? 'none');
 
-// La charge correspondante, telle que Stripe l'enverrait.
+// The matching charge, as Stripe would send it.
 let charge: Stripe.Charge | undefined;
 if (intent) {
   for await (const c of stripe.charges.list({ limit: 100 })) {
@@ -72,7 +72,7 @@ if (intent) {
 }
 console.log('  linked charge :', charge?.id ?? 'none');
 
-// On efface la trace laissée par le backfill pour repartir d'un état neutre.
+// Clear the row left by the backfill to start from a neutral state.
 const db = new Database(process.env.DB_PATH ?? './data/real.db');
 const before = db.prepare("SELECT COUNT(*) n FROM events WHERE kind='payment'").get() as { n: number };
 db.prepare('DELETE FROM events WHERE payment_intent = ?').run(intent ?? '');

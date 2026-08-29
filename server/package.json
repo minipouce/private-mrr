@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Backend d'agrégation multi-comptes Stripe : webhooks temps réel, métriques MRR, push Expo",
+  "description": "Multi-account Stripe aggregation backend: real-time webhooks, MRR metrics, push notifications",
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc -p tsconfig.json",

@@ -1,22 +1,22 @@
 import type Stripe from 'stripe';
 
 /**
- * Accès aux champs dont Stripe a changé l'emplacement entre versions d'API.
+ * Access to fields Stripe has relocated between API versions.
  *
- * Vérifié sur l'API 2026-08-26.dahlia : `Invoice.subscription`,
- * `Invoice.charge`, `Invoice.payment_intent` et `Charge.invoice` ont tous
- * disparu. S'appuyer dessus produit un import silencieusement faux — des
- * paiements non rattachés à leur abonnement, et comptés deux fois.
+ * Verified against API 2026-08-26.dahlia: `Invoice.subscription`,
+ * `Invoice.charge`, `Invoice.payment_intent` and `Charge.invoice` are all gone.
+ * Relying on them produces a silently wrong import: payments detached from
+ * their subscription, and counted twice.
  */
 
-/** Identifiant d'abonnement porté par une facture. */
+/** Subscription id carried by an invoice. */
 export function invoiceSubscriptionId(invoice: Stripe.Invoice): string | null {
   const raw = invoice as unknown as {
     subscription?: string | { id?: string } | null;
     parent?: { subscription_details?: { subscription?: string | { id?: string } | null } | null } | null;
   };
 
-  // Emplacement actuel, puis repli sur l'ancien.
+  // Current location first, then fall back to the legacy one.
   const candidates = [raw.parent?.subscription_details?.subscription, raw.subscription];
   for (const value of candidates) {
     if (!value) continue;
@@ -27,10 +27,10 @@ export function invoiceSubscriptionId(invoice: Stripe.Invoice): string | null {
 }
 
 /**
- * Payment intents ayant réglé une facture.
+ * Payment intents that settled an invoice.
  *
- * Nécessite `expand: ['data.payments']` à la lecture : sans cette expansion le
- * champ est absent et le lien facture/charge devient introuvable.
+ * Requires `expand: ['data.payments']` when reading: without it the field is
+ * absent and the invoice-to-charge link becomes impossible to establish.
  */
 export function invoicePaymentIntents(invoice: Stripe.Invoice): string[] {
   const raw = invoice as unknown as {
@@ -47,7 +47,7 @@ export function invoicePaymentIntents(invoice: Stripe.Invoice): string[] {
   return out;
 }
 
-/** Payment intent d'une charge. */
+/** Payment intent behind a charge. */
 export function chargePaymentIntent(charge: Stripe.Charge): string | null {
   const raw = charge as unknown as { payment_intent?: string | { id?: string } | null };
   const value = raw.payment_intent;

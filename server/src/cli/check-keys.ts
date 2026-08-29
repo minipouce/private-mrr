@@ -3,9 +3,9 @@ import { config } from '../config.js';
 import { stripeFor } from '../stripe/client.js';
 
 /**
- * Vérifie que chaque clé donne accès aux quatre ressources dont l'application a
- * besoin — et à elles seules. Une clé qui échoue ici manque d'une permission ;
- * une clé qui passe est suffisante, inutile de lui en accorder davantage.
+ * Checks that every key grants access to the four resources the application
+ * needs, and to those alone. A key failing here is missing a permission; a key
+ * passing is sufficient, and granting it more would serve no purpose.
  */
 const PROBES = [
   ['Subscriptions', (s: any) => s.subscriptions.list({ limit: 1 })],

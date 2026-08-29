@@ -34,7 +34,7 @@ export default function Dashboard() {
       setDaily(d.series);
       setMonthly(m.series);
     } catch {
-      // Les séries sont secondaires : leur échec ne doit pas vider l'écran.
+      // The series are secondary: their failure must not empty the screen.
     }
   }, []);
 
@@ -44,8 +44,8 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (overview) void loadSeries();
-    // `generatedAt` change à chaque recalcul poussé par le serveur : les
-    // courbes suivent donc le direct sans polling supplémentaire.
+    // `generatedAt` changes on every recomputation pushed by the server, so the
+    // curves follow the live stream without extra polling.
   }, [overview?.generatedAt, loadSeries]);
 
   const onRefresh = useCallback(async () => {
@@ -70,7 +70,7 @@ export default function Dashboard() {
   }
 
   const m = overview.total;
-  // L'aperçu porte l'indicateur de logo par projet ; les lignes d'activité s'y réfèrent.
+  // The overview carries the per-project logo flag; activity rows refer to it.
   const logoByProject = new Map(
     overview.projects.map((p) => [p.projectId ?? '', p.hasLogo ?? false]),
   );

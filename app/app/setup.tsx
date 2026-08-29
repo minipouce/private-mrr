@@ -12,10 +12,10 @@ import { colors, radius, space, type } from '../src/theme/index';
 import { t } from '../src/i18n';
 
 /**
- * Autorise le HTTP en clair uniquement vers une adresse privée ou de bouclage.
- * Sur Internet, le jeton transiterait en clair et serait interceptable — d'où
- * l'exigence de HTTPS partout ailleurs. `10.0.2.2` est l'alias par lequel
- * l'émulateur Android atteint la machine hôte.
+ * Allows cleartext HTTP only towards a private or loopback address. On the open
+ * internet the token would travel in the clear and be interceptable, hence the
+ * HTTPS requirement everywhere else. `10.0.2.2` is the alias through which the
+ * Android emulator reaches the host machine.
  */
 function isPrivateHost(url: string): boolean {
   const host = url.replace(/^https?:\/\//i, '').split(/[/:?#]/)[0] ?? '';
@@ -59,8 +59,8 @@ export default function Setup() {
     setBusy(true);
     try {
       await saveConfig(trimmed, token);
-      // Vérifie immédiatement que le couple adresse/jeton fonctionne, plutôt
-      // que de laisser l'utilisateur découvrir l'échec sur un écran vide.
+      // Check the address/token pair works right away, rather than letting the
+      // user discover the failure on an empty screen.
       await api.overview();
       await reconfigure();
       router.replace('/');

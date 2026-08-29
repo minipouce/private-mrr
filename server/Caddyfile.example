@@ -1,11 +1,11 @@
-# Extrait à intégrer au Caddyfile existant de ton VPS.
-# Caddy obtient et renouvelle le certificat Let's Encrypt automatiquement.
+# Snippet to add to your VPS's existing Caddyfile.
+# Caddy obtains and renews the Let's Encrypt certificate automatically.
 
-mrr.tondomaine.com {
+mrr.yourdomain.com {
     encode gzip
 
-    # Le flux SSE ne doit jamais être mis en tampon, sinon les événements
-    # arrivent par paquets au lieu d'arriver en direct.
+    # The SSE stream must never be buffered, otherwise events arrive in bursts
+    # instead of live.
     @stream path /api/stream
     reverse_proxy @stream 127.0.0.1:8791 {
         flush_interval -1

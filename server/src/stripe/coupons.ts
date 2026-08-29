@@ -1,17 +1,18 @@
 import type Stripe from 'stripe';
 
 /**
- * Résolution des remises applicables à un abonnement.
+ * Resolves the discounts that apply to a subscription.
  *
- * Deux difficultés cumulées sur les versions récentes de l'API :
+ * Two compounding difficulties on recent API versions:
  *
- * 1. Une remise peut être portée par le **client** et non par l'abonnement ;
- *    elle s'applique alors à toutes ses factures sans figurer sur l'abonnement.
- * 2. L'objet remise n'embarque plus le coupon : il n'en donne que
- *    l'identifiant, dans `source.coupon`. Le taux doit être récupéré à part.
+ * 1. A discount can be attached to the **customer** rather than the
+ *    subscription, in which case it applies to every invoice without appearing
+ *    on the subscription at all.
+ * 2. The discount object no longer embeds its coupon: it carries only the id,
+ *    under `source.coupon`. The rate has to be fetched separately.
  *
- * Ignorer l'un ou l'autre fait compter en MRR des comptes offerts que Stripe
- * ne facturera jamais.
+ * Missing either one counts comped accounts towards MRR, for money Stripe will
+ * never bill.
  */
 
 interface CouponValue {
@@ -31,7 +32,7 @@ function cacheFor(projectId: string): Map<string, CouponValue | null> {
   return entry;
 }
 
-/** Identifiants de coupon portés par un objet remise, toutes formes confondues. */
+/** Coupon references carried by a discount object, in any of its shapes. */
 function couponRefs(holder: unknown): Array<string | CouponValue> {
   const raw = holder as {
     discount?: unknown;
@@ -45,18 +46,18 @@ function couponRefs(holder: unknown): Array<string | CouponValue> {
 
   const out: Array<string | CouponValue> = [];
   for (const d of discounts) {
-    if (typeof d === 'string') continue; // remise non étendue : inexploitable
+    if (typeof d === 'string') continue; // unexpanded discount: unusable
     const disc = d as {
       coupon?: { id?: string; percent_off?: number | null; amount_off?: number | null; currency?: string | null } | string | null;
       source?: { coupon?: string | null } | null;
     };
 
-    // Forme récente : l'identifiant du coupon est dans `source`.
+    // Recent shape: the coupon id lives under `source`.
     if (typeof disc.source?.coupon === 'string') {
       out.push(disc.source.coupon);
       continue;
     }
-    // Forme historique : le coupon est embarqué, ou réduit à un identifiant.
+    // Legacy shape: the coupon is embedded, or reduced to an id.
     if (typeof disc.coupon === 'string') out.push(disc.coupon);
     else if (disc.coupon) {
       out.push({
@@ -87,16 +88,16 @@ async function resolve(
     entries.set(id, value);
     return value;
   } catch {
-    // Coupon supprimé ou inaccessible : on n'applique aucune remise plutôt que
-    // d'interrompre l'import.
+    // Deleted or inaccessible coupon: apply no discount rather than aborting
+    // the import.
     entries.set(id, null);
     return null;
   }
 }
 
 /**
- * Facteur multiplicatif à appliquer au montant récurrent, entre 0 et 1.
- * Retourne 1 si aucune remise exploitable n'est trouvée.
+ * Multiplier to apply to the recurring amount, between 0 and 1.
+ * Returns 1 when no usable discount is found.
  */
 export async function discountFactor(
   stripe: Stripe,

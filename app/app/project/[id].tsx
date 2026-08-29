@@ -54,8 +54,8 @@ export default function ProjectDetail() {
     void load();
   }, [load]);
 
-  // Le flux temps réel rafraîchit l'agrégat global ; on resynchronise le détail
-  // du projet dans la foulée pour éviter deux chiffres divergents à l'écran.
+  // The real-time stream refreshes the global aggregate; the project detail is
+  // resynchronised right after, to avoid two diverging figures on screen.
   useEffect(() => {
     if (overview) void load();
   }, [overview?.generatedAt, load]);
@@ -67,7 +67,7 @@ export default function ProjectDetail() {
   }, [load]);
 
   const projectEvents = events.filter((event) => event.project_id === id);
-  // L'aperçu consolidé porte l'indicateur de logo ; le détail ne le renvoie pas.
+  // The consolidated overview carries the logo flag; the detail does not return it.
   const projectHasLogo = overview?.projects.find((p) => p.projectId === id)?.hasLogo ?? false;
   const projectGoal = overview?.projects.find((p) => p.projectId === id)?.goal ?? null;
   const chartWidth = width - space.lg * 2 - space.lg * 2;

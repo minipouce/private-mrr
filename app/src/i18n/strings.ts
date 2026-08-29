@@ -1,13 +1,13 @@
 /**
- * Traductions de l'interface.
+ * Interface translations.
  *
- * Un objet plat par langue plutôt qu'une bibliothèque : quelques dizaines de
- * chaînes ne justifient pas une dépendance, et TypeScript garantit à lui seul
- * qu'aucune clé ne manque — `Strings` est dérivé de l'anglais, toute langue
- * incomplète échoue à la compilation.
+ * A flat object per language rather than a library: a few hundred strings do
+ * not justify a dependency, and TypeScript alone guarantees no key is missing.
+ * `Strings` is derived from English, so any incomplete language fails to
+ * compile.
  */
 export const en = {
-  // Connexion
+  // Connection
   setupTitle: 'Connect to your server',
   setupSubtitle:
     'Your Stripe keys stay on your server. The app only holds a read-only token, revocable at any time.',
@@ -55,7 +55,7 @@ export const en = {
   noData: 'No data',
   pullToRetry: 'Pull down to retry, or check your server settings.',
 
-  // Activité
+  // Activity
   activity: 'Activity',
   filterAll: 'All',
   filterPayments: 'Payments',
@@ -66,7 +66,7 @@ export const en = {
   tryAnotherFilter: 'Try another filter.',
   endOfHistory: 'End of history',
 
-  // Types d'événements
+  // Event types
   eventPayment: 'Payment',
   eventRefund: 'Refund',
   eventFailed: 'Failed',
@@ -76,7 +76,7 @@ export const en = {
   eventTrial: 'Trial',
   customer: 'Customer',
 
-  // Détail projet
+  // Project detail
   subscriber: 'subscriber',
   subscribers: 'subscribers',
   onTrial: 'on trial',
@@ -89,7 +89,7 @@ export const en = {
   runRate: 'run-rate',
   ofWhichCollected: 'of which collected',
 
-  // Réglages
+  // Settings
   settings: 'Settings',
   server: 'Server',
   address: 'Address',
@@ -136,7 +136,7 @@ export const en = {
   syncResult: '{count} subscriptions resynced from Stripe.',
   notificationsUnavailable: 'Cannot enable',
 
-  // État de connexion
+  // Connection state
   live: 'LIVE',
   connecting: 'CONNECTING',
   offlineBadge: 'OFFLINE',
@@ -149,14 +149,18 @@ export const en = {
   serverNotConfigured: 'Server not configured',
   unexpectedError: 'Unexpected error',
 
-  // Objectifs
+  // Goals
   goalTarget: 'target',
   goalExceededBy: 'Goal exceeded by {amount}',
   goalRemaining: '{amount} left to reach it',
   none: 'none',
 
-  // Notifications push
+  // Push notifications
   pushDevicePhysical: 'Push notifications require Google Play Services',
+  channelPayments: 'Payments received',
+  channelPaymentsHint: 'Incoming payments, with a cash register sound',
+  channelRevenue: 'Subscriptions and incidents',
+  channelRevenueHint: 'New subscribers, cancellations, failed payments',
   pushConfigureFirst: 'Configure the server before notifications',
   pushDeniedSettings: 'Notifications denied in Android settings',
 
@@ -168,6 +172,8 @@ export const en = {
   widgetConfigure: 'Open the app to configure',
   widgetUnreachable: 'Server unreachable',
   widgetTokenRejected: 'Token rejected',
+  widgetVsLastMonth: 'vs last month',
+  widgetUpdatedAt: 'at {time}',
   serverPlaceholder: 'https://mrr.yourdomain.com',
 
   about: 'About',
@@ -182,9 +188,9 @@ export const en = {
 } as const;
 
 /**
- * Le type ne retient que les clés, pas les valeurs : `as const` en ferait des
- * types littéraux, et aucune traduction ne pourrait alors différer de l'anglais.
- * L'exhaustivité reste vérifiée à la compilation.
+ * The type keeps only the keys, not the values: `as const` would make them
+ * literal types, and no translation could then differ from the English one.
+ * Exhaustiveness is still checked at compile time.
  */
 export type Strings = Record<keyof typeof en, string>;
 
@@ -328,6 +334,10 @@ export const fr: Strings = {
   none: 'aucun',
 
   pushDevicePhysical: 'Google Play Services est requis pour recevoir des notifications',
+  channelPayments: 'Paiements reçus',
+  channelPaymentsHint: 'Encaissements, avec son de caisse',
+  channelRevenue: 'Abonnements et incidents',
+  channelRevenueHint: 'Nouveaux abonnés, annulations, échecs de paiement',
   pushConfigureFirst: 'Configure le serveur avant les notifications',
   pushDeniedSettings: 'Notifications refusées dans les réglages Android',
 
@@ -338,6 +348,8 @@ export const fr: Strings = {
   widgetConfigure: "Ouvre l'app pour configurer",
   widgetUnreachable: 'Serveur injoignable',
   widgetTokenRejected: 'Jeton refusé',
+  widgetVsLastMonth: 'vs mois dernier',
+  widgetUpdatedAt: 'à {time}',
   serverPlaceholder: 'https://mrr.tondomaine.com',
 
   about: 'À propos',

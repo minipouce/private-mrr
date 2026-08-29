@@ -1,10 +1,10 @@
 /**
  * Configuration dynamique Expo.
  *
- * Reprend `app.json` et n'y ajoute `googleServicesFile` que si le fichier
- * existe réellement. Sans cette condition, un `prebuild` échouerait tant que
- * Firebase n'est pas configuré — alors que tout le reste de l'app fonctionne
- * parfaitement sans notifications push.
+ * Takes `app.json` and adds `googleServicesFile` only if the file actually
+ * exists. Without that condition a `prebuild` would fail until Firebase is
+ * configured, even though everything else in the app works perfectly well
+ * without push notifications.
  */
 const fs = require('fs');
 const path = require('path');
@@ -12,12 +12,12 @@ const path = require('path');
 const GOOGLE_SERVICES = 'google-services.json';
 
 /**
- * Identité de l'application, surchargeable par l'environnement.
+ * Application identity, overridable through the environment.
  *
  * Une personne qui reprend ce projet a besoin de son propre nom de paquet, de
  * son propre projet Firebase et de son propre compte Expo. Les valeurs de
- * `app.json` restent celles de l'auteur ; ces variables permettent de les
- * remplacer sans modifier le dépôt.
+ * `app.json` remain the author's; these variables replace them without
+ * modifying the repository.
  */
 function identity(config) {
   const pkg = process.env.APP_PACKAGE?.trim();
@@ -49,9 +49,9 @@ module.exports = ({ config: rawConfig }) => {
     return config;
   }
 
-  // Vérifie que le fichier Firebase correspond bien au paquet Android déclaré :
-  // une incohérence produit sinon un build qui se termine sans erreur mais dont
-  // les notifications ne partiront jamais.
+  // Check the Firebase file matches the declared Android package: a mismatch
+  // otherwise produces a build that finishes without error but whose
+  // notifications will never be sent.
   try {
     const services = JSON.parse(fs.readFileSync(absolute, 'utf8'));
     const declared = config.android?.package;

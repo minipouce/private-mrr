@@ -1,10 +1,10 @@
-# --- Étape de compilation ---------------------------------------------------
+# --- Build stage ------------------------------------------------------------
 FROM node:22-bookworm-slim AS build
 
 WORKDIR /app
 
-# better-sqlite3 est un module natif : il faut une chaîne de compilation pour
-# le construire, mais elle n'a rien à faire dans l'image finale.
+# better-sqlite3 is a native module: a toolchain is needed to build it, but it
+# has no business being in the final image.
 RUN apt-get update && apt-get install -y --no-install-recommends \
       python3 make g++ ca-certificates \
     && rm -rf /var/lib/apt/lists/*
@@ -16,19 +16,19 @@ COPY tsconfig.json ./
 COPY src ./src
 RUN npm run build
 
-# Élague les dépendances de développement : seul le runtime part en production.
+# Prune development dependencies: only the runtime ships to production.
 RUN npm prune --omit=dev
 
-# --- Image d'exécution ------------------------------------------------------
+# --- Runtime image ----------------------------------------------------------
 FROM node:22-bookworm-slim AS runtime
 
-# `tini` assure la transmission correcte de SIGTERM : sans lui, l'arrêt du
-# conteneur tue le process sans laisser SQLite fermer proprement son WAL.
+# `tini` forwards SIGTERM correctly: without it, stopping the container kills
+# the process without letting SQLite close its WAL cleanly.
 RUN apt-get update && apt-get install -y --no-install-recommends tini \
     && rm -rf /var/lib/apt/lists/*
 
 ENV NODE_ENV=production \
-    TZ=Europe/Paris \
+    TZ=UTC \
     DB_PATH=/data/mrr.db
 
 WORKDIR /app
@@ -38,7 +38,7 @@ COPY --from=build /app/dist ./dist
 COPY --from=build /app/package.json ./package.json
 COPY src/db/schema.sql ./dist/db/schema.sql
 
-# L'utilisateur `node` existe déjà dans l'image : on ne tourne jamais en root.
+# The `node` user already exists in the image: never run as root.
 RUN mkdir -p /data && chown -R node:node /data /app
 USER node
 

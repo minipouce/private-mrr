@@ -24,12 +24,12 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
       ...init,
       headers: {
         Authorization: `Bearer ${config.token}`,
-        // Le type de contenu n'est annoncé que s'il y a effectivement un corps :
-        // déclarer du JSON sans rien envoyer fait rejeter la requête.
+        // The content type is announced only when there actually is a body:
+        // declaring JSON while sending nothing gets the request rejected.
         ...(init.body ? { 'Content-Type': 'application/json' } : {}),
         ...init.headers,
       },
-      // Un réseau mobile qui décroche ne doit pas laisser l'écran figé.
+      // A mobile network dropping out must not leave the screen frozen.
       signal: AbortSignal.timeout(20_000),
     });
   } catch (err) {

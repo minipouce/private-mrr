@@ -14,7 +14,7 @@ import {
 import { notifyEvent } from '../push/index.js';
 import { db } from '../db/index.js';
 
-/** Types d'événements que l'on souscrit côté Stripe. */
+/** Event types subscribed to on the Stripe side. */
 export const SUBSCRIBED_EVENTS = [
   'invoice.paid',
   'invoice.payment_failed',
@@ -26,10 +26,10 @@ export const SUBSCRIBED_EVENTS = [
 ] as const;
 
 /**
- * Traite un événement Stripe vérifié.
+ * Handles a verified Stripe event.
  *
- * `notify` est désactivé pendant le backfill : rejouer deux ans d'historique
- * ne doit pas déclencher des milliers de notifications.
+ * `notify` is disabled during a backfill: replaying two years of history must
+ * not fire thousands of notifications.
  */
 export async function ingestEvent(
   project: ProjectConfig,
@@ -51,13 +51,13 @@ async function handle(project: ProjectConfig, event: Stripe.Event): Promise<Even
   switch (event.type) {
     case 'invoice.paid': {
       const invoice = object as unknown as Stripe.Invoice;
-      // Une facture à 0 € (essai, crédit intégral) n'est pas un encaissement.
+      // A zero-amount invoice (trial, full credit) is not a payment.
       if ((invoice.amount_paid ?? 0) <= 0) return null;
 
-      // Le corps du webhook ne contient pas les paiements étendus, donc pas de
-      // payment intent — or c'est la clé qui empêche de compter deux fois la
-      // facture et sa charge. On relit la facture pour l'obtenir : un appel par
-      // encaissement, négligeable au regard du risque de doubler le CA.
+      // The webhook body carries no expanded payments, hence no payment intent,
+      // which is precisely the key that keeps an invoice and its charge from
+      // being counted twice. Re-reading the invoice costs one call per payment,
+      // negligible against the risk of doubling reported revenue.
       let enriched = invoice;
       if (invoicePaymentIntents(invoice).length === 0 && invoice.id) {
         const stripe = stripeFor(project);
@@ -65,8 +65,8 @@ async function handle(project: ProjectConfig, event: Stripe.Event): Promise<Even
           try {
             enriched = await stripe.invoices.retrieve(invoice.id, { expand: ['payments'] });
           } catch {
-            // Échec de relecture : on insère sans clé de déduplication plutôt
-            // que de perdre l'encaissement. La réconciliation horaire corrigera.
+            // Re-read failed: insert without a deduplication key rather than
+            // lose the payment. The hourly reconciliation will correct it.
           }
         }
       }
@@ -81,9 +81,9 @@ async function handle(project: ProjectConfig, event: Stripe.Event): Promise<Even
 
     case 'charge.succeeded': {
       const charge = object as unknown as Stripe.Charge;
-      // Pas de filtrage : une charge adossée à une facture partage son payment
-      // intent, et l'index d'unicité écarte le second arrivé — quel que soit
-      // l'ordre entre `invoice.paid` et `charge.succeeded`.
+      // No filtering: a charge backing an invoice shares its payment intent, and
+      // the unique index discards whichever arrives second, regardless of the
+      // order between `invoice.paid` and `charge.succeeded`.
       return insertEvent(eventFromCharge(projectId, charge, event.id));
     }
 
@@ -111,7 +111,7 @@ async function handle(project: ProjectConfig, event: Stripe.Event): Promise<Even
       const before = previous?.mrr_base_cents ?? 0;
       const delta = normalized.mrr_base_cents - before;
 
-      // Passage d'essai à payant : c'est une conversion, pas un simple update.
+      // Trial converting to paid is a conversion, not a plain update.
       const converted =
         previous && !MRR_STATUSES.includes(previous.status) && MRR_STATUSES.includes(sub.status);
       if (converted) {

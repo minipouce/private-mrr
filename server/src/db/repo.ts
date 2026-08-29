@@ -24,24 +24,24 @@ export interface EventRow {
   customer_email: string | null;
   customer_name: string | null;
   subscription_id: string | null;
-  /** Identifiant commun entre une facture et sa charge : clé de déduplication. */
+  /** Shared between an invoice and its charge: the deduplication key. */
   payment_intent: string | null;
-  /** Motif Stripe : `subscription_create`, `subscription_cycle`, `manual`… */
+  /** Stripe reason: `subscription_create`, `subscription_cycle`, `manual`… */
   billing_reason: string | null;
   description: string | null;
   occurred_at: number;
   created_at: number;
-  /** Jointure avec `projects`, pour que l'app affiche le projet sans requête. */
+  /** Joined from `projects`, so the app can show it without another request. */
   project_name: string;
   project_color: string;
 }
 
 export type NewEvent = Omit<EventRow, 'id' | 'created_at' | 'project_name' | 'project_color'>;
 
-// `INSERT OR IGNORE` plutôt qu'un `ON CONFLICT` ciblé : deux contraintes
-// d'unicité protègent cette table — l'identifiant d'événement Stripe, et le
-// payment intent qui dédoublonne facture et charge. Une clause ciblée n'en
-// couvrirait qu'une seule et la seconde lèverait une exception.
+// `INSERT OR IGNORE` rather than a targeted `ON CONFLICT`: two unique
+// constraints guard this table, the Stripe event id and the payment intent that
+// deduplicates invoice against charge. A targeted clause would cover only one,
+// and the other would raise.
 const insertStmt = db.prepare(`
   INSERT OR IGNORE INTO events (
     project_id, stripe_event_id, stripe_object_id, kind,
@@ -63,9 +63,9 @@ const byRowId = db.prepare(`
 `);
 
 /**
- * Insère un événement de façon idempotente.
- * Retourne la ligne créée, ou `null` si l'événement était déjà connu — cas
- * normal lorsque Stripe relivre un webhook ou qu'un backfill recoupe le direct.
+ * Inserts an event idempotently.
+ * Returns the created row, or `null` when the event was already known, which is
+ * normal when Stripe redelivers a webhook or a backfill overlaps live traffic.
  */
 export function insertEvent(event: NewEvent, opts: { publish?: boolean } = {}): EventRow | null {
   const created_at = Math.floor(Date.now() / 1000);
@@ -152,5 +152,5 @@ export function upsertSubscription(sub: NewSubscription): void {
   upsertSubStmt.run({ ...sub, updated_at: Math.floor(Date.now() / 1000) });
 }
 
-/** Statuts Stripe considérés comme contribuant au MRR. */
+/** Stripe statuses considered to contribute to MRR. */
 export const ACTIVE_STATUSES = ['active', 'trialing', 'past_due'] as const;

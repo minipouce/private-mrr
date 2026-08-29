@@ -5,19 +5,19 @@ import { stripeFor } from './client.js';
 import { db } from '../db/index.js';
 
 /**
- * Récupération des logos de marque depuis Stripe.
+ * Fetches brand logos from Stripe.
  *
- * Chaque compte expose une icône dans ses paramètres de marque. On la télécharge
- * pour la servir depuis ce serveur plutôt que de pointer vers Stripe : les liens
- * de fichiers n'existent pas sur tous les comptes, et une notification push doit
- * pouvoir charger l'image sans authentification.
+ * Each account exposes an icon in its branding settings. It is downloaded and
+ * served from this server rather than linked to Stripe: file links do not exist
+ * on every account, and a push notification must be able to load the image
+ * without authentication.
  */
 
 const LOGO_DIR = process.env.LOGO_DIR ?? './data/logos';
 const MAX_BYTES = 2 * 1024 * 1024;
 
-// Le fichier est stocké sans extension : Stripe sert indifféremment du PNG ou
-// du JPEG, et se fier au nom conduirait à annoncer un mauvais type MIME.
+// Stored without an extension: Stripe serves PNG or JPEG interchangeably, and
+// trusting the filename would mean announcing the wrong MIME type.
 export function logoPath(projectId: string): string {
   return join(LOGO_DIR, projectId);
 }
@@ -26,7 +26,7 @@ export function hasLogo(projectId: string): boolean {
   return existsSync(logoPath(projectId));
 }
 
-/** Type MIME déduit des octets de signature, jamais du nom de fichier. */
+/** MIME type derived from the magic bytes, never from the filename. */
 export function sniffImageType(buf: Buffer): 'image/png' | 'image/jpeg' | null {
   if (buf.length < 4) return null;
   if (buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47) return 'image/png';
@@ -35,27 +35,26 @@ export function sniffImageType(buf: Buffer): 'image/png' | 'image/jpeg' | null {
 }
 
 /**
- * Télécharge le logo d'un projet. Retourne `true` si un fichier a été écrit.
- * Toute erreur est absorbée : un logo manquant ne doit jamais bloquer une
- * synchronisation ni l'ingestion d'un paiement.
+ * Downloads a project's logo. Returns `true` when a file was written.
+ * Errors are swallowed: a missing logo must never block a sync or the ingestion
+ * of a payment.
  */
 export async function syncLogo(project: ProjectConfig): Promise<boolean> {
   const stripe = stripeFor(project);
   if (!stripe) return false;
 
   try {
-    // Appelé sans identifiant, l'endpoint renvoie le compte associé à la clé.
-    // Le typage du SDK n'expose que la variante « compte connecté », qui exige
-    // un identifiant. On réécrit le type de la ressource plutôt que d'extraire
-    // la méthode : sortie de son objet, elle perdrait son `this` et échouerait
-    // à l'exécution.
+    // Called without an id, the endpoint returns the account behind the key. The
+    // SDK only types the connected-account variant, which requires an id. The
+    // resource type is rewritten rather than the method extracted: pulled out of
+    // its object it would lose `this` and fail at runtime.
     const accounts = stripe.accounts as unknown as { retrieve(): Promise<unknown> };
     const account = (await accounts.retrieve()) as {
       settings?: { branding?: { icon?: string | null; logo?: string | null } | null } | null;
     };
 
-    // L'icône est carrée et pensée pour les petits formats ; le logo, souvent
-    // horizontal, ne sert que de repli.
+    // The icon is square and meant for small sizes; the logo, often horizontal,
+    // serves only as a fallback.
     const fileId = account.settings?.branding?.icon ?? account.settings?.branding?.logo;
     if (!fileId) return false;
 
@@ -69,7 +68,7 @@ export async function syncLogo(project: ProjectConfig): Promise<boolean> {
       return false;
     }
 
-    // L'URL de contenu exige la clé du compte : ce n'est pas un lien public.
+    // The content URL requires the account key: it is not a public link.
     const res = await fetch(file.url, {
       headers: { Authorization: `Bearer ${project.stripeKey}` },
       signal: AbortSignal.timeout(20_000),
@@ -92,7 +91,7 @@ export async function syncLogo(project: ProjectConfig): Promise<boolean> {
     return true;
   } catch (err) {
     const message = (err as Error).message;
-    // Une clé sans permission Account est un cas de figure normal, pas une panne.
+    // A key without Account permission is an expected case, not a failure.
     if (!/permission/i.test(message)) {
       console.warn(`[branding] ${project.id}: ${message.slice(0, 100)}`);
     }

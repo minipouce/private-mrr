@@ -2,12 +2,12 @@
 /**
  * Configure la signature release du projet Android.
  *
- * `expo prebuild` régénère entièrement le dossier `android/` et y remet la clé
- * de debug pour les builds release. Ce script réapplique la configuration après
- * chaque prebuild ; il est idempotent et peut donc être rejoué sans risque.
+ * `expo prebuild` fully regenerates the `android/` folder and puts the debug
+ * key back for release builds. This script reapplies the configuration after
+ * every prebuild; it is idempotent and can safely be replayed.
  *
- * Le mot de passe est lu depuis l'environnement et écrit dans
- * `android/gradle.properties`, qui est ignoré par git.
+ * The password is read from the environment and written to
+ * `android/gradle.properties`, which git ignores.
  */
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { resolve, relative } from 'node:path';
@@ -39,7 +39,7 @@ props = props
   .join('\n')
   .replace(/\n+$/, '\n');
 
-// Chemin relatif au module `app`, car Gradle résout `file()` depuis ce dossier.
+// Path relative to the `app` module, since Gradle resolves `file()` from there.
 const relativeKeystore = relative(resolve(root, 'android/app'), keystorePath);
 
 props += `
@@ -69,7 +69,7 @@ if (!gradle.includes('MRR_STORE_FILE')) {
   );
 }
 
-// Bascule le buildType release sur la clé de release plutôt que celle de debug.
+// Point the release buildType at the release key rather than the debug one.
 gradle = gradle.replace(
   /(release\s*\{[^}]*?)signingConfig signingConfigs\.debug/s,
   '$1signingConfig signingConfigs.release',

@@ -8,8 +8,8 @@ import { t } from '../i18n';
 /**
  * Avancement vers un objectif de revenu.
  *
- * La barre est plafonnée à 100 % pour rester lisible, mais le pourcentage réel
- * est affiché tel quel : dépasser son objectif mérite d'être vu.
+ * The bar is capped at 100% to stay readable, but the real percentage is shown
+ * as is: beating your goal deserves to be seen.
  */
 export function GoalBar({
   goal,

@@ -7,17 +7,17 @@ import { globalGoal, goalProgress, type GoalKind } from '../lib/settings.js';
 const MRR_LIST = MRR_STATUSES.map((s) => `'${s}'`).join(',');
 const TRIAL_LIST = TRIAL_STATUSES.map((s) => `'${s}'`).join(',');
 
-/** Les revenus encaissés : paiements et remboursements (montants négatifs). */
+/** Cash collected: payments and refunds, the latter as negative amounts. */
 const CASH_KINDS = `('payment','refund')`;
 
 const sec = (d: Date) => Math.floor(d.getTime() / 1000);
 
 /**
- * Construit le filtre de projets d'une requête.
+ * Builds the project filter for a query.
  *
- * Sans identifiant, on ne somme pas l'ensemble de la table : on restreint aux
- * projets marqués `include_in_totals`. Un projet exclu reste consultable
- * individuellement, il ne pèse simplement plus sur le consolidé.
+ * With no id, the whole table is not summed: the scope narrows to projects
+ * flagged `include_in_totals`. An excluded project stays viewable on its own, it
+ * simply no longer weighs on the consolidated figures.
  */
 function projectFilter(projectId?: string): { clause: string; args: string[] } {
   if (projectId) return { clause: 'project_id = ?', args: [projectId] };
@@ -57,7 +57,7 @@ function addMonths(ref: Date, n: number): Date {
   return d;
 }
 
-/** Somme des encaissements sur une fenêtre, optionnellement filtrée par projet. */
+/** Cash collected over a window, optionally narrowed to one project. */
 function cashBetween(fromSec: number, toSec: number, projectId?: string): number {
   const f = projectFilter(projectId);
   const row = db
@@ -100,9 +100,9 @@ function counts(projectId?: string) {
 }
 
 /**
- * Décompose la variation de MRR du mois en cours.
- * Les quatre composantes expliquent l'écart entre le MRR du 1er du mois et
- * celui d'aujourd'hui : acquisition, expansion, contraction, attrition.
+ * Breaks down this month's MRR movement.
+ * The four components explain the gap between MRR on the 1st and MRR today:
+ * new business, expansion, contraction, churn.
  */
 function mrrMovement(fromSec: number, toSec: number, projectId?: string) {
   const f = projectFilter(projectId);
@@ -139,12 +139,12 @@ function mrrMovement(fromSec: number, toSec: number, projectId?: string) {
 }
 
 /**
- * Projection de fin d'année.
+ * Year-end projection.
  *
- * Deux composantes : le récurrent, extrapolé depuis le MRR courant sur les mois
- * restants, et le ponctuel, extrapolé depuis la moyenne journalière observée sur
- * 90 jours. Le mois en cours n'est compté qu'au prorata des jours restants pour
- * éviter de recompter ce qui est déjà encaissé.
+ * Two components: recurring revenue, extrapolated from current MRR across the
+ * remaining months, and one-off revenue, extrapolated from the daily average
+ * observed over 90 days. The current month counts only pro rata for the days
+ * left, so what is already collected is not counted twice.
  */
 function yearProjection(projectId?: string) {
   const now = new Date();
@@ -159,7 +159,7 @@ function yearProjection(projectId?: string) {
   const recurringLeft =
     mrr * fullMonthsLeft + Math.round((mrr * remainingInMonth) / daysInMonth);
 
-  // Ponctuel : moyenne sur 90 jours des encaissements non rattachés à un abonnement.
+  // One-off: 90-day average of payments not attached to a subscription.
   const ninetyDaysAgo = sec(new Date(now.getTime() - 90 * 86_400_000));
   const fOneOff = projectFilter(projectId);
   const oneOffRow = db
@@ -183,7 +183,7 @@ function yearProjection(projectId?: string) {
   };
 }
 
-/** Série journalière des encaissements, pour le graphique de l'app. */
+/** Daily cash series, for the app's chart. */
 export function dailySeries(days: number, projectId?: string) {
   const from = sec(new Date(startOfDay().getTime() - (days - 1) * 86_400_000));
   const f = projectFilter(projectId);
@@ -207,7 +207,7 @@ export function dailySeries(days: number, projectId?: string) {
   return series;
 }
 
-/** Série mensuelle sur N mois glissants, avec le MRR net de chaque mois. */
+/** Rolling monthly series over N months, with each month's net MRR. */
 export function monthlySeries(months: number, projectId?: string) {
   const series: { month: string; cents: number; netMrrCents: number }[] = [];
   const now = new Date();
@@ -256,7 +256,7 @@ function buildMetrics(
 
   const mtd = cashBetween(sec(monthStart), sec(now), projectId);
 
-  // Comparaison à périmètre égal : même nombre de jours écoulés le mois dernier.
+  // Like-for-like comparison: the same number of days elapsed last month.
   const prevSameSpan = cashBetween(
     sec(prevStart),
     sec(new Date(prevStart.getTime() + (now.getTime() - monthStart.getTime()))),
@@ -293,7 +293,7 @@ function buildMetrics(
   };
 }
 
-/** Vue consolidée : total tous projets + détail par projet. */
+/** Consolidated view: all-project total plus per-project detail. */
 export function overview() {
   const projects = db
     .prepare(

@@ -1,10 +1,9 @@
 #!/usr/bin/env node
 /**
- * Diagnostic de la chaîne de notifications push.
+ * Diagnoses the push notification chain.
  *
- * Chaque maillon peut échouer silencieusement : une app se compile et se lance
- * parfaitement alors qu'aucune notification ne partira jamais. Ce script rend
- * chaque maillon visible.
+ * Every link can fail silently: an app compiles and launches perfectly while no
+ * notification will ever be sent. This script makes each link visible.
  *
  *   node scripts/check-push.mjs
  *   node scripts/check-push.mjs --server https://mrr.tondomaine.com --token <jeton>
@@ -80,7 +79,7 @@ if (!existsSync(gsPath)) {
   }
 }
 
-// --- 3. Clé de compte de service (côté serveur) ----------------------------
+// --- 3. Service account key (server side) ----------------------------------
 console.log('\n\x1b[1m3. Firebase key (server side)\x1b[0m');
 
 const serverKeyPath = resolve(process.cwd(), '../server/credentials/fcm-service-account.json');
@@ -91,8 +90,8 @@ if (existsSync(serverKeyPath)) {
       bad('unexpected file', `type "${sa.type}"`);
     } else {
       ok('service account key present', sa.client_email);
-      // Le serveur envoie vers le projet nommé dans SA clé : si elle pointe
-      // ailleurs que google-services.json, les envois partiraient dans le vide.
+      // The server sends to the project named in ITS key: if that points
+      // somewhere other than google-services.json, sends go nowhere.
       const gs = existsSync(gsPath) ? JSON.parse(readFileSync(gsPath, 'utf8')) : null;
       if (gs && gs.project_info?.project_id !== sa.project_id) {
         bad(

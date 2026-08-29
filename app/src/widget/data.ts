@@ -6,16 +6,15 @@ import type { WidgetData } from './MrrWidget';
 import { t } from '../i18n';
 
 /**
- * Données du widget, avec conservation des derniers chiffres connus.
+ * Widget data, keeping the last known figures.
  *
- * Android place le téléphone inactif en mode Doze et coupe l'accès réseau des
- * applications en arrière-plan. Le rafraîchissement périodique se déclenche donc
- * bien, mais son appel échoue — et remplacer alors les chiffres par un message
- * d'erreur est le pire des choix : une donnée d'il y a deux heures reste utile,
- * « serveur injoignable » ne l'est jamais.
+ * Android puts an idle phone into Doze mode and cuts network access for
+ * background applications. The periodic refresh does fire, but its request
+ * fails, and replacing the figures with an error message is the worst possible
+ * choice: two-hour-old data is still useful, "server unreachable" never is.
  *
- * On conserve donc le dernier résultat et on l'affiche en le datant, plutôt que
- * de le perdre.
+ * So the last result is kept and displayed with its timestamp, rather than
+ * being thrown away.
  */
 
 const CACHE_KEY = 'mrr.widget_cache';
@@ -41,7 +40,7 @@ async function readCache(): Promise<WidgetData | null> {
     const raw = await SecureStore.getItemAsync(CACHE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as WidgetData;
-    // Un cache sans montant n'a aucune valeur : autant repartir de zéro.
+    // A cache with no amount is worthless: start from scratch instead.
     return parsed?.mrr ? parsed : null;
   } catch {
     return null;
@@ -52,7 +51,7 @@ async function writeCache(data: WidgetData): Promise<void> {
   try {
     await SecureStore.setItemAsync(CACHE_KEY, JSON.stringify(data));
   } catch {
-    // Un cache indisponible dégrade le confort, pas le fonctionnement.
+    // An unavailable cache degrades comfort, not correctness.
   }
 }
 
@@ -65,13 +64,13 @@ export async function loadWidgetData(): Promise<WidgetData> {
   try {
     const res = await fetch(`${config.baseUrl}/api/overview`, {
       headers: { Authorization: `Bearer ${config.token}` },
-      // Android interrompt une tâche de widget trop longue : mieux vaut
-      // renoncer proprement que d'être tué en plein rendu.
+      // Android kills a widget task that runs too long: better to give up
+      // cleanly than to be killed mid-render.
       signal: AbortSignal.timeout(12_000),
     });
 
-    // Un jeton refusé n'a rien de passager : le signaler vaut mieux que
-    // d'afficher indéfiniment des chiffres que plus rien ne rafraîchira.
+    // A rejected token is not transient: saying so beats displaying figures
+    // indefinitely that nothing will ever refresh again.
     if (res.status === 401) return fallback(t('widgetTokenRejected'));
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
@@ -82,16 +81,16 @@ export async function loadWidgetData(): Promise<WidgetData> {
       mrr: moneyCompact(m.mrrCents, m.currency),
       today: moneyCompact(m.todayCents, m.currency),
       mtd: moneyCompact(m.mtdCents, m.currency),
-      delta: m.mtdVsPrevPct !== null ? `${percent(m.mtdVsPrevPct)} vs mois dernier` : null,
+      delta: m.mtdVsPrevPct !== null ? `${percent(m.mtdVsPrevPct)} ${t('widgetVsLastMonth')}` : null,
       deltaPositive: (m.mtdVsPrevPct ?? 0) >= 0,
-      updatedAt: `à ${stamp(new Date())}`,
+      updatedAt: t('widgetUpdatedAt', { time: stamp(new Date()) }),
     };
 
     await writeCache(fresh);
     return fresh;
   } catch {
-    // Réseau coupé, veille profonde, serveur muet : on garde ce qu'on sait,
-    // en indiquant que la donnée n'est plus fraîche.
+    // No network, deep sleep, silent server: keep what we know and mark the
+    // data as no longer fresh.
     if (cached) return { ...cached, stale: true };
     return fallback(t('widgetUnreachable'));
   }

@@ -4,8 +4,8 @@ import { overview } from '../metrics/index.js';
 import type { EventRow } from '../db/repo.js';
 
 /**
- * Flux SSE : pousse chaque nouvel événement et les métriques recalculées
- * vers les apps connectées, sans polling.
+ * SSE stream: pushes every new event and the recomputed metrics to connected
+ * apps, without polling.
  */
 export function registerStream(app: FastifyInstance): void {
   app.get('/api/stream', (request, reply) => {
@@ -13,7 +13,7 @@ export function registerStream(app: FastifyInstance): void {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache, no-transform',
       Connection: 'keep-alive',
-      // Désactive la mise en tampon d'un éventuel proxy intermédiaire.
+      // Disables buffering in any intermediate proxy.
       'X-Accel-Buffering': 'no',
     });
 
@@ -27,7 +27,7 @@ export function registerStream(app: FastifyInstance): void {
 
     const onEvent = (event: EventRow) => send('event', event);
 
-    // Le recalcul est groupé : une rafale de webhooks ne provoque qu'un envoi.
+    // Recomputation is coalesced: a burst of webhooks causes a single send.
     let pending: NodeJS.Timeout | null = null;
     const onDirty = () => {
       if (pending) return;
@@ -37,8 +37,8 @@ export function registerStream(app: FastifyInstance): void {
       }, 400);
     };
 
-    // Trame de maintien : empêche les proxies et le réseau mobile de couper
-    // une connexion jugée inactive.
+    // Keep-alive frame: stops proxies and mobile networks from cutting a
+    // connection they consider idle.
     const heartbeat = setInterval(() => {
       if (!reply.raw.writableEnded) reply.raw.write(': ping\n\n');
     }, 25_000);

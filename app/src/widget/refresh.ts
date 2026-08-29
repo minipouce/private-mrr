@@ -1,14 +1,14 @@
 import { Platform } from 'react-native';
 
 /**
- * Redessine le widget avec des données fraîches.
+ * Redraws the widget with fresh data.
  *
- * Le cycle automatique d'Android est plafonné à une mise à jour toutes les
- * 30 minutes. Sans ce déclenchement, un widget consulté juste après un paiement
- * afficherait encore l'état d'avant.
+ * Android's automatic cycle is capped at one update every 30 minutes. Without
+ * this trigger, a widget looked at right after a payment would still show the
+ * previous state.
  *
- * Le rendu doit produire les vraies valeurs : `requestWidgetUpdate` dessine
- * littéralement ce qu'on lui passe, il n'invalide pas un cache.
+ * The render must produce the real values: `requestWidgetUpdate` literally
+ * draws what it is given, it does not invalidate a cache.
  */
 export async function refreshWidget(): Promise<void> {
   if (Platform.OS !== 'android') return;
@@ -27,10 +27,10 @@ export async function refreshWidget(): Promise<void> {
       widgetName: 'Mrr',
       renderWidget: (info) =>
         React.createElement(MrrWidget, { data, width: info?.width, height: info?.height }),
-      // Sans widget posé sur l'écran d'accueil, il n'y a rien à mettre à jour.
+      // With no widget placed on the home screen, there is nothing to update.
       widgetNotFound: () => undefined,
     });
   } catch {
-    // Le rafraîchissement du widget ne doit jamais perturber l'application.
+    // Refreshing the widget must never disrupt the application.
   }
 }

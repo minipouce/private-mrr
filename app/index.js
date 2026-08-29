@@ -1,9 +1,9 @@
 /**
- * Point d'entrée de l'application.
+ * Application entry point.
  *
- * Le gestionnaire de widget doit être enregistré au chargement du bundle, y
- * compris lorsque Android réveille l'application sans interface pour rafraîchir
- * le widget — c'est pourquoi l'enregistrement précède le routeur.
+ * The widget task handler must be registered when the bundle loads, including
+ * when Android wakes the application headless to refresh the widget. That is
+ * why registration comes before the router.
  */
 import { registerWidgetTaskHandler } from 'react-native-android-widget';
 import { widgetTaskHandler } from './src/widget/handler';

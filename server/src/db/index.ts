@@ -12,8 +12,8 @@ function openDatabase(): Database.Database {
   const db = new Database(config.dbPath);
   db.pragma('journal_mode = WAL');
   db.pragma('foreign_keys = ON');
-  // Compromis durabilité/latence acceptable ici : les webhooks Stripe sont
-  // rejouables, une perte de la dernière transaction n'est pas définitive.
+  // An acceptable durability/latency trade-off here: Stripe webhooks are
+  // replayable, so losing the last transaction is not permanent.
   db.pragma('synchronous = NORMAL');
 
   migrate(db);
@@ -22,18 +22,17 @@ function openDatabase(): Database.Database {
 }
 
 /**
- * Migrations légères, appliquées avant le schéma.
+ * Lightweight migrations, applied before the schema.
  *
- * `schema.sql` est idempotent pour les créations, mais ne sait pas faire
- * évoluer une table existante. L'index d'unicité sur `payment_intent` s'appuie
- * sur une colonne ajoutée après coup : sans cet ajout préalable, la création de
- * l'index échouerait sur une base antérieure.
+ * `schema.sql` is idempotent for creation but cannot evolve an existing table.
+ * The unique index on `payment_intent` relies on a column added later: without
+ * this prior step, creating the index would fail on an older database.
  */
 function migrate(db: Database.Database): void {
   const hasEvents = db
     .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'events'")
     .get();
-  if (!hasEvents) return; // base neuve : schema.sql crée déjà tout
+  if (!hasEvents) return; // fresh database: schema.sql creates everything
 
   const columns = (db.prepare('PRAGMA table_info(events)').all() as { name: string }[]).map(
     (c) => c.name,
@@ -68,16 +67,16 @@ function migrate(db: Database.Database): void {
 export const db = openDatabase();
 
 /**
- * Synchronise la table `projects` avec la configuration d'environnement.
- * Les projets retirés de la config restent en base : leur historique est
- * conservé, seule l'ingestion s'arrête.
+ * Syncs the `projects` table with the environment configuration.
+ * Projects removed from the config stay in the database: their history is kept,
+ * only ingestion stops.
  */
 export function syncProjectsFromConfig(): void {
   const upsert = db.prepare(`
     INSERT INTO projects (id, name, color, created_at)
     VALUES (@id, @name, @color, @now)
-    -- include_in_totals est délibérément absent de la mise à jour : c'est un
-    -- choix de l'utilisateur, il ne doit pas être écrasé à chaque démarrage.
+    -- include_in_totals is deliberately absent from the update: it is a user
+    -- choice and must not be overwritten on every boot.
     ON CONFLICT(id) DO UPDATE SET name = @name, color = @color
   `);
   const ensurePrefs = db.prepare(

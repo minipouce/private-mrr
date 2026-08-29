@@ -8,8 +8,8 @@ import { loadConfig } from '../api/config';
 import { refreshWidget } from '../widget/refresh';
 import { t } from '../i18n';
 
-// Une notification reçue app ouverte doit rester visible : sans cela, un
-// paiement qui tombe pendant la consultation passe totalement inaperçu.
+// A notification received while the app is open must stay visible: without
+// this, a payment landing mid-session goes completely unnoticed.
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowBanner: true,
@@ -20,22 +20,22 @@ Notifications.setNotificationHandler({
 });
 
 /**
- * Crée les canaux de notification Android.
+ * Creates the Android notification channels.
  *
- * Appelée au démarrage et non seulement à l'activation : le son d'un canal est
- * figé à sa création et ne peut plus être modifié. Un appareil déjà enregistré
- * ne repasserait jamais par la demande d'autorisation, et n'obtiendrait donc
- * jamais le canal porteur du son de caisse.
+ * Called at startup and not only on opt-in, because a channel's sound is frozen
+ * at creation and can never be changed afterwards. An already registered device
+ * would never go through the permission request again, and so would never get
+ * the channel carrying the cash register sound.
  *
- * `setNotificationChannelAsync` est idempotente : rejouer la création d'un canal
- * existant ne fait rien, et ne réinitialise pas les réglages de l'utilisateur.
+ * `setNotificationChannelAsync` is idempotent: recreating an existing channel
+ * does nothing and does not reset the user's own settings.
  */
 export async function ensureChannels(): Promise<void> {
   if (Platform.OS !== 'android') return;
 
   await Notifications.setNotificationChannelAsync('payments', {
-    name: 'Paiements reçus',
-    description: 'Encaissements, avec son de caisse',
+    name: t('channelPayments'),
+    description: t('channelPaymentsHint'),
     importance: Notifications.AndroidImportance.HIGH,
     vibrationPattern: [0, 200, 100, 200],
     lightColor: '#22D39A',
@@ -44,8 +44,8 @@ export async function ensureChannels(): Promise<void> {
   });
 
   await Notifications.setNotificationChannelAsync('revenue', {
-    name: 'Abonnements et incidents',
-    description: 'Nouveaux abonnés, annulations, échecs de paiement',
+    name: t('channelRevenue'),
+    description: t('channelRevenueHint'),
     importance: Notifications.AndroidImportance.HIGH,
     vibrationPattern: [0, 200, 100, 200],
     lightColor: '#6366F1',
@@ -63,13 +63,13 @@ export function usePush() {
   const registered = useRef(false);
 
   const register = useCallback(async (): Promise<boolean> => {
-    // On ne bloque pas sur `Device.isDevice` : un émulateur doté de Google Play
-    // Services obtient un jeton FCM parfaitement valide. Le seul juge fiable est
-    // la demande de jeton elle-même, dont l'échec est traité plus bas.
+    // Do not gate on `Device.isDevice`: an emulator with Google Play Services
+    // gets a perfectly valid FCM token. The only reliable judge is the token
+    // request itself, whose failure is handled below.
     setStatus('registering');
     try {
-      // Canal Android : porte l'importance HIGH, indispensable pour que la
-      // notification s'affiche en bandeau et vibre plutôt que de rester muette.
+      // Android channel: carries HIGH importance, required for the notification
+      // to appear as a heads-up banner and vibrate rather than stay silent.
       await ensureChannels();
 
       const existing = await Notifications.getPermissionsAsync();
@@ -85,9 +85,9 @@ export function usePush() {
         return false;
       }
 
-      // Jeton FCM natif, et non un jeton Expo : le serveur envoie directement
-      // vers Firebase, sans passer par le service push d'Expo. Le contenu des
-      // notifications ne transite donc par aucun intermédiaire supplémentaire.
+      // A native FCM token, not an Expo token: the server sends straight to
+      // Firebase without going through Expo's push service. Notification
+      // contents therefore pass through no extra intermediary.
       const devicePushToken = await Notifications.getDevicePushTokenAsync();
       const fcmToken = String(devicePushToken.data);
 
@@ -106,8 +106,8 @@ export function usePush() {
       return true;
     } catch (err) {
       const message = (err as Error).message;
-      // Cause la plus fréquente : Google Play Services absent (émulateur nu,
-      // ROM dégooglisée). Le message brut de Firebase n'aide pas l'utilisateur.
+      // Most common cause: Google Play Services missing (bare emulator,
+      // de-Googled ROM). Firebase's raw message does not help the user.
       const isMissingPlayServices = /play services|SERVICE_NOT_AVAILABLE|MISSING_INSTANCEID/i.test(
         message,
       );
@@ -125,9 +125,9 @@ export function usePush() {
     void ensureChannels();
   }, []);
 
-  // Une notification signale précisément le moment où les chiffres changent :
-  // c'est l'occasion la plus utile de redessiner le widget, bien plus que le
-  // cycle de trente minutes imposé par Android.
+  // A notification marks exactly the moment the figures change, which is the
+  // most useful time to redraw the widget, far more than the thirty-minute
+  // cycle Android imposes.
   useEffect(() => {
     const sub = Notifications.addNotificationReceivedListener(() => {
       void refreshWidget();
@@ -135,7 +135,7 @@ export function usePush() {
     return () => sub.remove();
   }, []);
 
-  // Tap sur une notification : ouvre directement le projet concerné.
+  // Tapping a notification opens the project it concerns.
   useEffect(() => {
     const sub = Notifications.addNotificationResponseReceivedListener((response) => {
       const data = response.notification.request.content.data as { projectId?: string };

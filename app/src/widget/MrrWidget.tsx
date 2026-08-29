@@ -3,14 +3,14 @@ import { FlexWidget, TextWidget } from 'react-native-android-widget';
 import { t } from '../i18n';
 
 /**
- * Widget d'écran d'accueil, adaptatif.
+ * Adaptive home screen widget.
  *
- * Rendu en RemoteViews Android : ni styles React Native, ni jetons de thème n'y
- * sont résolus, d'où une composition plate et des couleurs littérales.
+ * Rendered as Android RemoteViews: neither React Native styles nor theme tokens
+ * are resolved there, hence a flat composition and literal colours.
  *
- * Android communique la taille réelle en dp à chaque redimensionnement ; on
- * décline trois densités d'information plutôt que de comprimer une mise en page
- * unique jusqu'à l'illisible.
+ * Android reports the real size in dp on every resize, so three information
+ * densities are offered rather than squeezing a single layout down to
+ * illegibility.
  */
 
 export interface WidgetData {
@@ -20,7 +20,7 @@ export interface WidgetData {
   delta: string | null;
   deltaPositive: boolean;
   updatedAt: string;
-  /** Chiffres conservés d'une mise à jour antérieure, faute de réseau. */
+  /** Figures kept from an earlier update, for want of a network. */
   stale?: boolean;
   error?: string;
 }
@@ -36,13 +36,13 @@ const NEGATIVE = '#FF5C7A';
 type Density = 'small' | 'medium' | 'large';
 
 /**
- * Densité d'information adaptée à la place disponible.
+ * Information density matched to the available room.
  *
- * En portrait, Android rapporte `OPTION_APPWIDGET_MAX_HEIGHT`, qui englobe les
- * marges du lanceur : la surface réellement dessinable est sensiblement plus
- * petite que la valeur annoncée. Les seuils intègrent donc une réserve
- * confortable. Surestimer la place tronque le contenu ; la sous-estimer donne
- * un widget aéré — le second défaut est bien moins gênant que le premier.
+ * In portrait, Android reports `OPTION_APPWIDGET_MAX_HEIGHT`, which includes the
+ * launcher's own padding: the genuinely drawable surface is noticeably smaller
+ * than the announced value. The thresholds therefore keep a comfortable margin.
+ * Overestimating the room truncates the content; underestimating it yields an
+ * airy widget, and the second fault is far less annoying than the first.
  */
 function densityFor(width?: number, height?: number): Density {
   const h = height ?? 90;
@@ -141,9 +141,9 @@ export function MrrWidget({
     );
   }
 
-  // `justifyContent: 'space-between'` étirait le contenu sur toute la hauteur
-  // supposée : dès que la hauteur réelle était moindre, le bas se retrouvait
-  // hors cadre. Un empilement naturel se contente de la place qu'il occupe.
+  // `justifyContent: 'space-between'` stretched the content over the assumed
+  // height: as soon as the real height was smaller, the bottom fell outside the
+  // frame. A natural stack takes only the room it occupies.
   return (
     <Shell padding={14}>
       <TextWidget
@@ -193,7 +193,7 @@ export function MrrWidget({
 
         <FlexWidget style={{ width: 12 }} />
 
-        {/* Discret par construction : la fraîcheur se consulte, elle n'alerte pas. */}
+        {/* Deliberately quiet: freshness is there to be checked, not to alert. */}
         <TextWidget
           text={data.stale ? `${data.updatedAt} ·` : data.updatedAt}
           style={{ fontSize: 8, color: FAINT, marginTop: 10 }}

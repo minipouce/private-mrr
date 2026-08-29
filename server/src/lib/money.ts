@@ -2,23 +2,23 @@ import { db } from '../db/index.js';
 import { config } from '../config.js';
 
 /**
- * Devises sans sous-unité chez Stripe : le montant est déjà l'unité entière
- * (1000 JPY = 1000, pas 10,00). On les normalise en "centimes" internes en
- * multipliant par 100 pour garder une arithmétique unique dans toute la base.
+ * Zero-decimal currencies in Stripe: the amount is already the whole unit
+ * (1000 JPY means 1000, not 10.00). They are normalised into internal "cents"
+ * by multiplying by 100, so a single arithmetic holds across the database.
  */
 const ZERO_DECIMAL = new Set([
   'bif', 'clp', 'djf', 'gnf', 'jpy', 'kmf', 'krw', 'mga',
   'pyg', 'rwf', 'ugx', 'vnd', 'vuv', 'xaf', 'xof', 'xpf',
 ]);
 
-/** Filet de sécurité si l'API de taux est injoignable au premier démarrage. */
+/** Safety net if the rates API is unreachable on first boot. */
 const FALLBACK_RATES: Record<string, number> = {
   eur: 1, usd: 0.92, gbp: 1.17, chf: 1.06, cad: 0.68,
   aud: 0.61, jpy: 0.0061, sek: 0.087, nok: 0.086, dkk: 0.134,
   pln: 0.23, brl: 0.17, inr: 0.011, mxn: 0.05, sgd: 0.69,
 };
 
-/** Convertit un montant Stripe brut en centimes internes. */
+/** Converts a raw Stripe amount into internal cents. */
 export function toInternalCents(stripeAmount: number, currency: string): number {
   return ZERO_DECIMAL.has(currency.toLowerCase())
     ? Math.round(stripeAmount * 100)
@@ -37,14 +37,14 @@ function rateFor(currency: string): number {
   return FALLBACK_RATES[code] ?? 1;
 }
 
-/** Convertit des centimes internes vers la devise de consolidation. */
+/** Converts internal cents into the base currency. */
 export function toBaseCents(cents: number, currency: string): number {
   return Math.round(cents * rateFor(currency));
 }
 
 /**
- * Ramène un montant récurrent au mois, quelle que soit la périodicité Stripe.
- * Un abonnement annuel à 1200 € pèse 100 € de MRR.
+ * Normalises a recurring amount to a month, whatever the Stripe interval.
+ * A yearly subscription at 1200 EUR weighs 100 EUR of MRR.
  */
 export function monthlyNormalized(
   amountCents: number,
@@ -65,8 +65,8 @@ export function monthlyNormalized(
 }
 
 /**
- * Rafraîchit les taux depuis Frankfurter (API publique, sans clé).
- * Un échec n'est jamais bloquant : on conserve le cache existant.
+ * Refreshes rates from Frankfurter (public API, no key required).
+ * Failure is never fatal: the existing cache is kept.
  */
 export async function refreshRates(): Promise<void> {
   const base = config.baseCurrency.toUpperCase();
@@ -83,7 +83,7 @@ export async function refreshRates(): Promise<void> {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
     const body = (await res.json()) as { rates?: Record<string, number> };
-    if (!body.rates) throw new Error('réponse sans taux');
+    if (!body.rates) throw new Error('response contained no rates');
 
     const now = Math.floor(Date.now() / 1000);
     const upsert = db.prepare(`
@@ -94,7 +94,7 @@ export async function refreshRates(): Promise<void> {
     db.transaction(() => {
       upsert.run(config.baseCurrency, 1, now);
       for (const [code, rate] of Object.entries(body.rates!)) {
-        // L'API donne base -> devise ; on stocke l'inverse (devise -> base).
+        // The API returns base -> currency; we store the inverse.
         if (rate > 0) upsert.run(code.toLowerCase(), 1 / rate, now);
       }
     })();

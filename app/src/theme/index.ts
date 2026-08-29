@@ -1,8 +1,8 @@
 import type { TextStyle } from 'react-native';
 
 /**
- * Système de design : sombre, dense, orienté chiffres.
- * Une seule source de vérité pour couleurs, espacements et typographie.
+ * Design system: dark, dense, numbers first.
+ * A single source of truth for colours, spacing and typography.
  */
 export const colors = {
   bg: '#08090D',
@@ -45,11 +45,11 @@ export const radius = {
 } as const;
 
 /**
- * `tabular` aligne les chiffres sur une largeur fixe : sans cela, un montant
- * qui se met à jour en direct fait sautiller toute la mise en page.
+ * `tabular` aligns digits on a fixed width: without it, an amount updating live
+ * makes the whole layout jitter.
  *
- * Les styles sont typés `TextStyle` plutôt que figés par `as const` : React
- * Native attend un `fontVariant` mutable et rejette un tuple en lecture seule.
+ * Styles are typed `TextStyle` rather than frozen with `as const`: React Native
+ * expects a mutable `fontVariant` and rejects a readonly tuple.
  */
 export const type = {
   hero:    { fontSize: 46, fontWeight: '700', letterSpacing: -1.6 },
@@ -61,7 +61,7 @@ export const type = {
   tabular: { fontVariant: ['tabular-nums'] },
 } satisfies Record<string, TextStyle>;
 
-/** Couleur d'un delta : vert si positif, rouge si négatif, neutre si nul. */
+/** Delta colour: green when positive, red when negative, neutral at zero. */
 export function deltaColor(value: number): string {
   if (value > 0) return colors.positive;
   if (value < 0) return colors.negative;

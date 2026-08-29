@@ -2,9 +2,9 @@ import { EventEmitter } from 'node:events';
 import type { EventRow } from '../db/repo.js';
 
 /**
- * Bus interne reliant l'ingestion Stripe aux clients SSE connectés.
- * Chaque événement inséré en base est republié ici pour un affichage
- * temps réel dans l'app sans nouvelle requête.
+ * Internal bus linking Stripe ingestion to connected SSE clients.
+ * Every event inserted into the database is republished here so the app can
+ * display it in real time without another request.
  */
 class LiveBus extends EventEmitter {
   publishEvent(event: EventRow): void {
@@ -17,6 +17,6 @@ class LiveBus extends EventEmitter {
 }
 
 export const bus = new LiveBus();
-// Un client SSE par appareil, plus les abonnés internes : la limite par défaut
-// de 10 listeners est vite atteinte sans que ce soit une fuite.
+// One SSE client per device, plus internal subscribers: the default limit of 10
+// listeners is reached quickly without any leak being involved.
 bus.setMaxListeners(100);

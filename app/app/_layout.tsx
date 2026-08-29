@@ -8,8 +8,8 @@ import { ensureChannels } from '../src/hooks/usePush';
 import { colors } from '../src/theme/index';
 
 export default function RootLayout() {
-  // Les canaux doivent exister avant toute notification, indépendamment de
-  // l'écran affiché et du fait que l'appareil soit déjà enregistré.
+  // The channels must exist before any notification, whatever screen is shown
+  // and whether or not the device is already registered.
   useEffect(() => {
     void ensureChannels();
   }, []);

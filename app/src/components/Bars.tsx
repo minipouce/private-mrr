@@ -33,8 +33,8 @@ export function Bars({ data, color = colors.accent, currency = 'eur' }: Props) {
                 style={[
                   styles.bar,
                   {
-                    // 3 % minimum : une barre nulle doit rester visible comme
-                    // un mois à zéro, pas comme une donnée manquante.
+                    // 3% minimum: an empty bar must still read as a zero month,
+                    // not as missing data.
                     height: `${Math.max(ratio * 100, 3)}%`,
                     backgroundColor: isLast ? color : `${color}44`,
                   },

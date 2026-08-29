@@ -1,6 +1,6 @@
 import { db } from '../db/index.js';
 
-/** Réglages globaux, stockés en clé/valeur. */
+/** Global settings, stored as key/value pairs. */
 export function getSetting(key: string): string | null {
   const row = db.prepare('SELECT value FROM settings WHERE key = ?').get(key) as
     | { value: string }
@@ -27,9 +27,8 @@ export interface Goal {
 }
 
 /**
- * Objectif consolidé. Exprimé en MRR ou en ARR au choix : penser en « 10 k€ de
- * MRR » ou en « 120 k€ d'ARR » recouvre la même réalité, mais pas la même
- * façon de se projeter.
+ * Consolidated goal, expressed in MRR or ARR. Thinking in "10k MRR" or "120k
+ * ARR" describes the same reality, but not the same way of picturing it.
  */
 export function globalGoal(): Goal | null {
   const cents = Number(getSetting('goal_cents') ?? '');
@@ -48,7 +47,7 @@ export function setGlobalGoal(goal: Goal | null): void {
   setSetting('goal_kind', goal.kind);
 }
 
-/** Avancement d'un objectif, borné à 100 % pour l'affichage. */
+/** Goal progress, capped at 100% for display. */
 export function goalProgress(goal: Goal | null, mrrCents: number) {
   if (!goal) return null;
   const current = goal.kind === 'arr' ? mrrCents * 12 : mrrCents;
@@ -56,8 +55,8 @@ export function goalProgress(goal: Goal | null, mrrCents: number) {
     kind: goal.kind,
     targetCents: goal.cents,
     currentCents: current,
-    // La valeur brute peut dépasser 100 % : on la conserve pour l'afficher,
-    // la barre de progression étant plafonnée côté interface.
+    // The raw value can exceed 100%: it is kept for display, while the progress
+    // bar itself is capped in the interface.
     percent: Math.round((current / goal.cents) * 1000) / 10,
     remainingCents: Math.max(0, goal.cents - current),
   };

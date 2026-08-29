@@ -44,7 +44,7 @@ export interface GoalProgress {
   kind: 'mrr' | 'arr';
   targetCents: number;
   currentCents: number;
-  /** Peut dépasser 100 : la barre est plafonnée, pas la valeur. */
+  /** May exceed 100: the bar is capped, the value is not. */
   percent: number;
   remainingCents: number;
 }
@@ -67,7 +67,7 @@ export interface Metrics {
   movement: MrrMovement;
   projection: Projection;
   lastEventAt: number | null;
-  /** Présents uniquement dans la liste `projects` de l'aperçu. */
+  /** Present only in the overview's `projects` list. */
   includedInTotals?: boolean;
   hasLogo?: boolean;
   goal?: GoalProgress | null;
@@ -119,9 +119,9 @@ export interface ProjectInfo {
   name: string;
   color: string;
   connected: boolean;
-  /** Le projet pèse-t-il sur le MRR et le CA consolidés ? */
+  /** Does this project count towards consolidated MRR and revenue? */
   includedInTotals: boolean;
-  /** Un logo de marque a-t-il été récupéré depuis Stripe ? */
+  /** Has a brand logo been fetched from Stripe? */
   hasLogo: boolean;
   /** Objectif de revenu en centimes, `null` si aucun. */
   goal_cents: number | null;

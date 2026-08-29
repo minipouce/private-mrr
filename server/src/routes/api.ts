@@ -40,7 +40,7 @@ export function registerApi(app: FastifyInstance): void {
       ...p,
       includedInTotals: p.include_in_totals === 1,
       hasLogo: hasLogo(p.id),
-      // `connected` indique qu'une clé Stripe est configurée, sans jamais la divulguer.
+      // `connected` says a Stripe key is configured, without ever revealing it.
       connected: Boolean(config.projectById.get(p.id)?.stripeKey),
       sync: syncById.get(p.id) ?? null,
     }));
@@ -64,8 +64,8 @@ export function registerApi(app: FastifyInstance): void {
 
       if ('goal_cents' in (request.body ?? {})) {
         const raw = request.body?.goal_cents;
-        // Un objectif nul ou négatif vaut suppression : c'est ainsi que
-        // l'interface efface un objectif sans verbe dédié.
+        // A zero or negative goal means removal: that is how the interface clears
+        // a goal without a dedicated verb.
         const cents = typeof raw === 'number' && raw > 0 ? Math.round(raw) : null;
         const kind: GoalKind = request.body?.goal_kind === 'arr' ? 'arr' : 'mrr';
         db.prepare('UPDATE projects SET goal_cents = ?, goal_kind = ? WHERE id = ?').run(
@@ -75,11 +75,11 @@ export function registerApi(app: FastifyInstance): void {
         );
       }
 
-      // Le consolidé change : on prévient les clients connectés au flux.
+      // The consolidated figures change, so connected stream clients are told.
       bus.publishMetricsDirty();
 
-      // Même forme que la liste : l'application remplace l'élément modifié
-      // dans son état, une réponse partielle en viderait des champs.
+      // Same shape as the list: the app replaces the modified item in its state,
+      // and a partial response would blank out fields.
       const row = db
         .prepare(
           `SELECT id, name, color, include_in_totals, goal_cents, goal_kind, created_at
@@ -121,7 +121,7 @@ export function registerApi(app: FastifyInstance): void {
       args.push(project);
     }
     if (kind) {
-      // Liste blanche implicite : les valeurs sont paramétrées, jamais concaténées.
+      // Implicit allowlist: values are bound as parameters, never concatenated.
       const kinds = kind.split(',').filter(Boolean);
       clauses.push(`kind IN (${kinds.map(() => '?').join(',')})`);
       args.push(...kinds);
@@ -193,7 +193,7 @@ export function registerApi(app: FastifyInstance): void {
     '/api/push/register',
     async (request, reply) => {
       const token = request.body?.token;
-      if (!token) return reply.code(400).send({ error: 'token manquant' });
+      if (!token) return reply.code(400).send({ error: 'missing token' });
       try {
         registerToken(token, request.body?.deviceName);
         return { ok: true };

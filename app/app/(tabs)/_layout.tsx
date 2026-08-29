@@ -6,8 +6,8 @@ import { colors, type } from '../../src/theme/index';
 import { t } from '../../src/i18n';
 
 /**
- * Icônes typographiques plutôt qu'une bibliothèque d'icônes : moins de poids
- * dans le bundle et un rendu identique sur toutes les versions d'Android.
+ * Typographic icons rather than an icon library: less weight in the bundle and
+ * identical rendering across every Android version.
  */
 function TabIcon({ glyph, focused }: { glyph: string; focused: boolean }) {
   return (
@@ -20,8 +20,8 @@ function TabIcon({ glyph, focused }: { glyph: string; focused: boolean }) {
 }
 
 export default function TabsLayout() {
-  // Android 16 impose l'edge-to-edge : sans cette marge, la barre d'onglets
-  // passe sous la barre de navigation système et devient illisible.
+  // Android 16 enforces edge-to-edge: without this inset, the tab bar slides
+  // under the system navigation bar and becomes unreadable.
   const insets = useSafeAreaInsets();
 
   return (

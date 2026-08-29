@@ -40,7 +40,7 @@ export default function Settings() {
       setPrefs(Object.fromEntries(prefList.map((p) => [p.project_id, p])));
       setGoal(globalGoal);
     } catch {
-      // Écran de réglages : on tolère l'absence de réseau sans bloquer.
+      // Settings screen: tolerate a missing network without blocking.
     }
   }, []);
 
@@ -49,7 +49,7 @@ export default function Settings() {
   }, [loadAll]);
 
   const toggleIncluded = async (projectId: string, current: boolean) => {
-    // Mise à jour optimiste, comme pour les préférences de notification.
+    // Optimistic update, as with the notification preferences.
     setProjects((prev) =>
       prev.map((p) => (p.id === projectId ? { ...p, includedInTotals: !current } : p)),
     );
@@ -72,8 +72,8 @@ export default function Settings() {
     if (!current) return;
 
     const next = current[key] === 1 ? false : true;
-    // Mise à jour optimiste : l'interrupteur répond immédiatement, et l'on
-    // revient en arrière si le serveur refuse.
+    // Optimistic update: the switch responds immediately, and rolls back if the
+    // server refuses.
     setPrefs((prev) => ({
       ...prev,
       [projectId]: { ...current, [key]: next ? 1 : 0 },

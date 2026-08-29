@@ -1,13 +1,12 @@
 import type Stripe from 'stripe';
 
 /**
- * Résolution des noms de produits, mémoïsée par projet.
+ * Product name resolution, memoised per project.
  *
- * L'API Stripe limite l'expansion à quatre niveaux : demander
- * `data.items.data.price.product` sur une liste d'abonnements en fait cinq et
- * se solde par une erreur. On récupère donc les produits séparément, une seule
- * fois chacun, ce qui reste peu coûteux — un catalogue compte quelques dizaines
- * de produits, pas des milliers.
+ * Stripe caps expansion at four levels: asking for
+ * `data.items.data.price.product` on a subscription list makes five and fails.
+ * Products are therefore fetched separately, once each, which stays cheap — a
+ * catalogue holds dozens of products, not thousands.
  */
 const cache = new Map<string, Map<string, string | null>>();
 
@@ -27,7 +26,7 @@ export async function productName(
 ): Promise<string | null> {
   if (!ref) return null;
 
-  // Déjà étendu par l'appelant : rien à récupérer.
+  // Already expanded by the caller: nothing to fetch.
   if (typeof ref !== 'string') {
     return 'deleted' in ref && ref.deleted ? null : ((ref as Stripe.Product).name ?? null);
   }
@@ -41,13 +40,13 @@ export async function productName(
     entries.set(ref, name);
     return name;
   } catch {
-    // Un produit supprimé ou inaccessible ne doit pas interrompre le backfill.
+    // A deleted or inaccessible product must not abort the backfill.
     entries.set(ref, null);
     return null;
   }
 }
 
-/** Premier produit référencé par un abonnement, pour l'affichage. */
+/** First product referenced by a subscription, for display. */
 export async function subscriptionProductName(
   stripe: Stripe,
   projectId: string,

@@ -3,8 +3,8 @@ import * as SecureStore from 'expo-secure-store';
 /**
  * URL du serveur et jeton d'API.
  *
- * Le jeton est conservé dans SecureStore — chiffré par le keystore Android —
- * et jamais dans AsyncStorage, qui est lisible en clair sur un appareil rooté.
+ * The token lives in SecureStore, encrypted by the Android keystore, and never
+ * in AsyncStorage, which is readable in the clear on a rooted device.
  */
 const URL_KEY = 'mrr.server_url';
 const TOKEN_KEY = 'mrr.api_token';

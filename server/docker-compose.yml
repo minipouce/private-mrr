@@ -10,20 +10,19 @@ services:
       PORT: 8791
       DB_PATH: /data/mrr.db
       LOGO_DIR: /data/logos
-      TZ: Europe/Paris
       FCM_SERVICE_ACCOUNT_PATH: /run/secrets/fcm-service-account.json
     volumes:
       - mrr-data:/data
-      # Clé Firebase montée en lecture seule : elle n'entre jamais dans l'image,
-      # ce qui éviterait qu'elle se retrouve dans un registre ou un cache de couche.
+      # Firebase key mounted read-only: it never enters the image, which would
+      # otherwise land it in a registry or a layer cache.
       - ./credentials/fcm-service-account.json:/run/secrets/fcm-service-account.json:ro
-    # Publié uniquement sur la boucle locale : le conteneur n'est joignable
-    # que par le reverse-proxy de l'hôte, jamais directement depuis Internet.
+    # Published on loopback only: the container is reachable through the host's
+    # reverse proxy alone, never directly from the internet.
     ports:
       - "127.0.0.1:8791:8791"
     security_opt:
       - no-new-privileges:true
-    # Le seul chemin devant rester inscriptible est le volume de données.
+    # The data volume is the only path that needs to stay writable.
     read_only: true
     tmpfs:
       - /tmp

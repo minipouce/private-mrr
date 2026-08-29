@@ -2,12 +2,11 @@ import { getLocales } from 'expo-localization';
 import { en, fr, type Strings } from './strings';
 
 /**
- * Sélection de la langue.
+ * Language selection.
  *
- * L'anglais est la langue par défaut — c'est celle d'un projet public — et le
- * français s'applique si le téléphone est réglé ainsi. La détection a lieu une
- * fois au chargement : changer la langue du système redémarre l'application de
- * toute façon.
+ * English is the default, as befits a public project, and French applies if the
+ * phone is set to it. Detection happens once at load time: changing the system
+ * language restarts the application anyway.
  */
 const TABLES: Record<string, Strings> = { en, fr };
 
@@ -25,12 +24,12 @@ const detected = detect();
 export const locale = detected.code;
 export const isFrench = detected.code === 'fr';
 
-/** Étiquette de langue pour `Intl`, à laquelle se conforme tout le formatage. */
+/** Language tag for `Intl`, which all formatting follows. */
 export const intlLocale = isFrench ? 'fr-FR' : 'en-US';
 
 /**
- * Traduit une clé, en substituant les marqueurs `{nom}` par les valeurs
- * fournies. Le typage garantit qu'une clé inconnue ne compile pas.
+ * Translates a key, substituting `{name}` placeholders with the given values.
+ * Typing guarantees an unknown key does not compile.
  */
 export function t(key: keyof Strings, vars?: Record<string, string | number>): string {
   const template = detected.strings[key] ?? en[key];
@@ -42,7 +41,7 @@ export function t(key: keyof Strings, vars?: Record<string, string | number>): s
   );
 }
 
-/** Accord en nombre, limité au pluriel simple qui suffit aux deux langues. */
+/** Number agreement, limited to the simple plural both languages need. */
 export function plural(count: number, one: keyof Strings, many: keyof Strings): string {
   return count > 1 ? t(many) : t(one);
 }

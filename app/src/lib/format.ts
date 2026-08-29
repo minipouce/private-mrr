@@ -1,9 +1,9 @@
 /**
- * Formatage des montants et des dates.
+ * Amount and date formatting.
  *
- * La locale suit la langue détectée : un montant écrit « 1 234,50 € » en
- * français doit se lire « €1,234.50 » en anglais, sans quoi l'interface
- * traduite garderait une typographie étrangère.
+ * The locale follows the detected language: an amount written "1 234,50 €" in
+ * French must read "€1,234.50" in English, otherwise a translated interface
+ * would keep foreign typography.
  */
 import { intlLocale, t } from '../i18n';
 
@@ -38,11 +38,11 @@ export function money(cents: number, currency = 'eur'): string {
 }
 
 /**
- * Montant abrégé : « 128,7 k€ », « 1,34 M€ ».
+ * Abbreviated amount: "€128.7k", "€1.34M".
  *
- * Hermes n'implémente pas `Intl.NumberFormat` en notation compacte — la
- * demander produit silencieusement un nombre non abrégé. On calcule donc les
- * paliers nous-mêmes plutôt que de dépendre du moteur d'exécution.
+ * Hermes does not implement `Intl.NumberFormat` compact notation: asking for it
+ * silently returns an unabbreviated number. The thresholds are therefore
+ * computed here rather than relying on the runtime.
  */
 export function moneyCompact(cents: number, currency = 'eur'): string {
   const units = cents / 100;
@@ -50,12 +50,12 @@ export function moneyCompact(cents: number, currency = 'eur'): string {
   const sign = units < 0 ? '\u2212' : '';
   const symbol = symbolFor(currency);
 
-  // En dessous de 10 000, abréger ferait perdre plus d'information qu'il n'en
-  // ferait gagner en place : « 3 669 € » se lit mieux que « 3,7 k€ ».
+  // Below 10,000, abbreviating loses more information than it saves in space:
+  // "€3,669" reads better than "€3.7k".
   if (abs < 10_000) return fullFormatter(currency).format(units);
 
-  // Le séparateur décimal suit la langue : une virgule en français, un point
-  // en anglais. Le coder en dur donnait « 131,7 k€ » dans une interface anglaise.
+  // The decimal separator follows the language: a comma in French, a period in
+  // English. Hard-coding it produced "131,7 k€" in an English interface.
   const decimals = (value: number, digits: number) =>
     new Intl.NumberFormat(intlLocale, {
       minimumFractionDigits: digits,
@@ -69,7 +69,7 @@ export function moneyCompact(cents: number, currency = 'eur'): string {
   return `${sign}${decimals(abs / 1_000_000, 2)}\u202fM${symbol}`;
 }
 
-/** Montant avec centimes, pour les lignes d'événement individuelles. */
+/** Amount with cents, for individual event rows. */
 export function moneyPrecise(cents: number, currency = 'eur'): string {
   return new Intl.NumberFormat(intlLocale, {
     style: 'currency',
@@ -78,7 +78,7 @@ export function moneyPrecise(cents: number, currency = 'eur'): string {
   }).format(cents / 100);
 }
 
-/** Delta signé : « +9 701 € » / « −251 € ». */
+/** Signed delta: "+€9,701" / "−€251". */
 export function signed(cents: number, currency = 'eur'): string {
   const sign = cents > 0 ? '+' : cents < 0 ? '−' : '';
   return `${sign}${money(Math.abs(cents), currency)}`;
@@ -93,11 +93,11 @@ export function percent(value: number | null): string {
   }).format(Math.abs(value))} %`;
 }
 
-/** Temps écoulé, compact : « à l'instant », « 12 min », « 3 h », « 5 j ». */
+/** Compact elapsed time: "just now", "12 min", "3 h", "5 d". */
 export function timeAgo(unixSeconds: number): string {
   const diff = Math.floor(Date.now() / 1000) - unixSeconds;
   if (diff < 45) return t('justNow');
-  // Entre 45 et 59 secondes, la division tomberait à zéro : « 0 min » n'a aucun sens.
+  // Between 45 and 59 seconds the division floors to zero, and "0 min" is meaningless.
   if (diff < 3600) return `${Math.max(1, Math.floor(diff / 60))} ${t('minutesShort')}`;
   if (diff < 86_400) return `${Math.floor(diff / 3600)} ${t('hoursShort')}`;
   if (diff < 604_800) return `${Math.floor(diff / 86_400)} ${t('daysShort')}`;
@@ -123,7 +123,7 @@ export function monthLabel(iso: string): string {
     .replace('.', '');
 }
 
-/** Nom affichable d'un client, avec repli sur l'e-mail puis un libellé neutre. */
+/** Displayable customer name, falling back to email then a neutral label. */
 export function customerLabel(name: string | null, email: string | null): string {
   return name ?? email?.split('@')[0] ?? t('customer');
 }

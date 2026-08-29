@@ -17,9 +17,9 @@ import { subscriptionProductName } from './products.js';
 import { discountFactor } from './coupons.js';
 
 /**
- * Applique les remises résolues au MRR d'un abonnement normalisé.
- * Les coupons ne sont pas lisibles depuis l'objet abonnement seul : ils exigent
- * une résolution séparée, mémoïsée par `coupons.ts`.
+ * Applies resolved discounts to a normalised subscription's MRR.
+ * Coupons are not readable from the subscription object alone: they need a
+ * separate resolution, memoised by `coupons.ts`.
  */
 async function applyDiscount(
   stripe: import('stripe').default,
@@ -36,12 +36,12 @@ async function applyDiscount(
 }
 
 /**
- * Complète un événement déjà présent avec les champs ajoutés après son import.
+ * Fills in an existing event with columns added after it was imported.
  *
- * L'insertion est idempotente et ignore les doublons, ce qui protège des
- * relivraisons — mais laisse aussi les anciennes lignes sans les colonnes
- * apparues depuis. On les renseigne ici, sans jamais écraser une valeur
- * existante ni supprimer quoi que ce soit.
+ * Insertion is idempotent and ignores duplicates, which protects against Stripe
+ * redeliveries but also leaves older rows without columns introduced since.
+ * They are completed here, never overwriting an existing value and never
+ * deleting anything.
  */
 function repairEvent(projectId: string, row: { stripe_object_id: string; billing_reason: string | null; subscription_id: string | null; payment_intent: string | null }): number {
   if (!row.billing_reason && !row.subscription_id && !row.payment_intent) return 0;
@@ -67,7 +67,7 @@ function repairEvent(projectId: string, row: { stripe_object_id: string; billing
   return result.changes;
 }
 
-/** Profondeur d'historique importée, en mois. 24 permet la comparaison N-1. */
+/** History depth imported, in months. 24 allows year-over-year comparison. */
 const BACKFILL_MONTHS = Number(process.env.BACKFILL_MONTHS ?? 24);
 
 function since(): number {
@@ -78,14 +78,14 @@ function since(): number {
 }
 
 /**
- * Importe l'historique d'un compte Stripe.
+ * Imports one Stripe account's history.
  *
- * L'API Events de Stripe ne conserve que 30 jours : l'historique long est donc
- * reconstruit depuis les objets eux-mêmes (factures, charges, abonnements)
- * plutôt que depuis le flux d'événements.
+ * Stripe's Events API only retains 30 days, so long history is rebuilt from the
+ * objects themselves (invoices, charges, subscriptions) rather than from the
+ * event stream.
  *
- * L'opération est idempotente — les identifiants synthétiques sont déterministes,
- * donc un backfill rejoué n'introduit aucun doublon.
+ * The operation is idempotent: synthetic ids are deterministic, so replaying a
+ * backfill introduces no duplicates.
  */
 export async function backfillProject(
   project: ProjectConfig,
@@ -110,7 +110,7 @@ export async function backfillProject(
   console.log(`[backfill] ${project.id}: importing since ${new Date(from * 1000).toISOString().slice(0, 10)}`);
 
   try {
-    // ---- Abonnements : état courant + événements de cycle de vie synthétiques
+    // ---- Subscriptions: current state plus synthetic lifecycle events
     for await (const sub of stripe.subscriptions.list({
       status: 'all',
       limit: 100,
@@ -149,9 +149,9 @@ export async function backfillProject(
       }
     }
 
-    // ---- Factures payées : la source de vérité du chiffre d'affaires récurrent
-    // `data.payments` est indispensable : c'est la seule façon d'obtenir le
-    // payment intent d'une facture, donc de la dédoublonner avec sa charge.
+    // ---- Paid invoices: the source of truth for recurring revenue
+    // `data.payments` is essential: it is the only way to obtain an invoice's
+    // payment intent, and therefore to deduplicate it against its charge.
     for await (const invoice of stripe.invoices.list({
       status: 'paid',
       created: { gte: from },
@@ -169,7 +169,7 @@ export async function backfillProject(
       else repaired += repairEvent(project.id, row);
     }
 
-    // ---- Charges hors facture : paiements ponctuels, et remboursements
+    // ---- Charges outside invoices: one-off payments, and refunds
     for await (const charge of stripe.charges.list({
       created: { gte: from },
       limit: 100,
@@ -177,9 +177,9 @@ export async function backfillProject(
     })) {
       if (!charge.paid || charge.status !== 'succeeded') continue;
 
-      // Les charges adossées à une facture sont écartées par l'index d'unicité
-      // sur le payment intent : inutile de les filtrer ici, et impossible de le
-      // faire de façon fiable puisque `Charge.invoice` n'existe plus.
+      // Charges backing an invoice are discarded by the unique index on the
+      // payment intent. Filtering here would be redundant, and impossible to do
+      // reliably now that `Charge.invoice` no longer exists.
       const row = eventFromCharge(project.id, charge, `backfill:charge:${charge.id}`);
       if (insertEvent(row, { publish: false })) eventCount++;
 
@@ -226,8 +226,8 @@ export async function backfillProject(
 }
 
 /**
- * Réconciliation : resynchronise l'état des abonnements actifs.
- * Rattrape les webhooks éventuellement perdus (panne serveur, déploiement).
+ * Reconciliation: resyncs the state of active subscriptions.
+ * Catches up webhooks possibly lost during an outage or a deployment.
  */
 export async function reconcileProject(project: ProjectConfig): Promise<number> {
   const stripe = stripeFor(project);

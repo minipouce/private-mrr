@@ -1,8 +1,8 @@
 /**
- * Import manuel de l'historique Stripe.
- *   npm run backfill              -> tous les projets, sans réécraser l'existant
- *   npm run backfill -- --force   -> rejoue l'historique complet
- *   npm run backfill -- saas-a    -> un seul projet
+ * Manual Stripe history import.
+ *   npm run backfill              -> every project, without overwriting
+ *   npm run backfill -- --force   -> replays the full history
+ *   npm run backfill -- saas-a    -> a single project
  */
 import { config } from '../config.js';
 import { syncProjectsFromConfig, db } from '../db/index.js';

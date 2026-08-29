@@ -2,13 +2,13 @@ import { loadConfig } from './config';
 import { t } from '../i18n';
 
 /**
- * Client SSE minimal bâti sur XMLHttpRequest.
+ * Minimal SSE client built on XMLHttpRequest.
  *
- * `EventSource` n'existe pas en React Native et ne permettrait de toute façon
- * pas d'envoyer l'en-tête `Authorization` — la seule alternative serait de
- * passer le jeton en paramètre d'URL, où il finirait dans les journaux d'accès
- * du reverse-proxy. XHR expose la réponse au fil de l'eau et accepte les
- * en-têtes : on parse le flux nous-mêmes.
+ * `EventSource` does not exist in React Native, and would not let us send the
+ * `Authorization` header anyway. The only alternative would be passing the
+ * token as a URL parameter, where it would end up in the reverse proxy's
+ * access logs. XHR exposes the response as it arrives and accepts headers, so
+ * we parse the stream ourselves.
  */
 export interface SseHandlers {
   onEvent?: (type: string, data: unknown) => void;
@@ -29,13 +29,13 @@ export function connectStream(handlers: SseHandlers): SseConnection {
   let lastActivity = Date.now();
 
   /**
-   * Le serveur émet une trame de maintien toutes les 25 s. Au-delà de 70 s de
-   * silence, la connexion est considérée morte.
+   * The server emits a keepalive frame every 25s. Past 70s of silence, the
+   * connection is considered dead.
    *
-   * C'est indispensable sur mobile : un basculement Wi-Fi/4G, une veille, ou un
-   * redémarrage du serveur laissent la socket ouverte côté Android sans jamais
-   * déclencher `error` ni `readyState 4`. Sans ce garde-fou, l'app affiche
-   * « en direct » tout en étant sourde.
+   * This is essential on mobile: a Wi-Fi/4G handover, a sleep, or a server
+   * restart leaves the socket open on the Android side without ever firing
+   * `error` or reaching `readyState 4`. Without this guard, the app displays
+   * "live" while being deaf.
    */
   const startWatchdog = () => {
     if (watchdog) clearInterval(watchdog);
@@ -57,8 +57,8 @@ export function connectStream(handlers: SseHandlers): SseConnection {
       return;
     }
 
-    // Index du dernier octet déjà traité : XHR accumule la réponse entière,
-    // on ne relit donc que le nouveau fragment à chaque progression.
+    // Index of the last byte already handled: XHR accumulates the whole
+    // response, so only the new fragment is read on each progress event.
     let consumed = 0;
     let buffer = '';
 
@@ -68,13 +68,13 @@ export function connectStream(handlers: SseHandlers): SseConnection {
     req.setRequestHeader('Authorization', `Bearer ${config.token}`);
     req.setRequestHeader('Accept', 'text/event-stream');
     req.setRequestHeader('Cache-Control', 'no-cache');
-    // Sans ce type explicite, React Native peut mettre la réponse en tampon
-    // au lieu de l'exposer au fil de l'eau.
+    // Without this explicit type, React Native may buffer the response instead
+    // of exposing it as it arrives.
     req.responseType = 'text';
 
     const flush = () => {
-      // Un bloc SSE est terminé par une ligne vide. Tout reliquat reste en
-      // tampon jusqu'à réception de la fin du bloc.
+      // An SSE block ends with a blank line. Anything left over stays buffered
+      // until the end of the block arrives.
       let index: number;
       while ((index = buffer.indexOf('\n\n')) !== -1) {
         const block = buffer.slice(0, index);
@@ -83,7 +83,7 @@ export function connectStream(handlers: SseHandlers): SseConnection {
         let eventType = 'message';
         const dataLines: string[] = [];
         for (const line of block.split('\n')) {
-          if (line.startsWith(':')) continue; // trame de maintien
+          if (line.startsWith(':')) continue; // keepalive frame
           if (line.startsWith('event:')) eventType = line.slice(6).trim();
           else if (line.startsWith('data:')) dataLines.push(line.slice(5).trim());
         }
@@ -92,16 +92,16 @@ export function connectStream(handlers: SseHandlers): SseConnection {
         try {
           handlers.onEvent?.(eventType, JSON.parse(dataLines.join('\n')));
         } catch {
-          // Fragment illisible : on l'ignore plutôt que de rompre le flux.
+          // Unreadable fragment: skip it rather than break the stream.
         }
       }
     };
 
     /**
-     * Consomme la portion de réponse pas encore traitée.
+     * Consumes the part of the response not yet handled.
      *
-     * React Native accumule tout dans `responseText` : on ne relit donc que le
-     * nouveau fragment, repéré par l'index du dernier octet consommé.
+     * React Native accumulates everything in `responseText`, so only the new
+     * fragment is read, located by the index of the last consumed byte.
      */
     const drain = () => {
       if (closed) return;
@@ -109,7 +109,7 @@ export function connectStream(handlers: SseHandlers): SseConnection {
       try {
         text = req.responseText ?? '';
       } catch {
-        return; // corps pas encore lisible selon l'état du transfert
+        return; // body not readable yet at this point of the transfer
       }
       if (text.length > consumed) {
         lastActivity = Date.now();
@@ -119,9 +119,9 @@ export function connectStream(handlers: SseHandlers): SseConnection {
       }
     };
 
-    // React Native ne rejoue pas `readystatechange` à chaque fragment reçu,
-    // contrairement aux navigateurs : c'est `progress` qui porte le flux.
-    // On écoute les deux pour être indépendant de l'implémentation.
+    // Unlike browsers, React Native does not replay `readystatechange` on each
+    // received fragment: `progress` is what carries the stream. Both are
+    // listened to, so this does not depend on the implementation.
     req.onprogress = drain;
 
     req.onreadystatechange = () => {
@@ -149,13 +149,13 @@ export function connectStream(handlers: SseHandlers): SseConnection {
 
     if (unauthorized) {
       handlers.onError?.(t('tokenRejected'));
-      return; // inutile de réessayer avec un jeton invalide
+      return; // no point retrying with an invalid token
     }
 
     handlers.onError?.(t('connectionLost'));
     if (retryTimer) clearTimeout(retryTimer);
     retryTimer = setTimeout(start, retryDelay);
-    // Repli exponentiel plafonné : évite de marteler un serveur en panne.
+    // Capped exponential backoff: avoids hammering a server that is down.
     retryDelay = Math.min(retryDelay * 2, 30_000);
   };
 

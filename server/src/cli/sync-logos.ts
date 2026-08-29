@@ -1,5 +1,5 @@
 /**
- * Récupère les logos de marque de tous les projets configurés.
+ * Fetches the brand logos of every configured project.
  *   npm run sync-logos
  */
 import 'dotenv/config';

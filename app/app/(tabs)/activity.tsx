@@ -36,8 +36,8 @@ export default function Activity() {
     [overview],
   );
 
-  // Le flux direct et les pages chargées à la demande sont fusionnés puis
-  // dédupliqués : un même événement peut apparaître dans les deux sources.
+  // The live stream and the pages loaded on demand are merged then deduplicated:
+  // the same event can appear in both sources.
   const combined = useMemo(() => {
     const seen = new Set<number>();
     return [...events, ...older].filter((event) => {

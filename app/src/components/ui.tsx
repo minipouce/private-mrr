@@ -35,7 +35,7 @@ export function SectionTitle({
   );
 }
 
-/** Petite statistique : libellé discret, valeur proéminente, note optionnelle. */
+/** Small statistic: quiet label, prominent value, optional note. */
 export function Stat({
   label,
   value,

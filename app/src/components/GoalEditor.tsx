@@ -6,9 +6,9 @@ import { t } from '../i18n';
 /**
  * Saisie d'un objectif de revenu.
  *
- * Le montant est saisi en unités entières — on se fixe un objectif en euros,
- * pas en centimes — et converti à l'enregistrement. Un champ vide ou nul
- * supprime l'objectif, ce qui évite un bouton de suppression distinct.
+ * The amount is typed in whole units, since a goal is set in euros rather than
+ * cents, and converted on save. An empty or zero field removes the goal, which
+ * avoids a separate delete button.
  */
 export function GoalEditor({
   label,
@@ -27,8 +27,8 @@ export function GoalEditor({
   const [current, setCurrent] = useState<'mrr' | 'arr'>(kind);
   const [busy, setBusy] = useState(false);
 
-  // Une modification venue du serveur (autre appareil, rechargement) doit se
-  // refléter ici tant que l'utilisateur n'est pas en train de saisir.
+  // A change coming from the server (another device, a reload) must show up
+  // here as long as the user is not currently typing.
   useEffect(() => {
     if (!busy) setText(cents ? String(Math.round(cents / 100)) : '');
   }, [cents, busy]);

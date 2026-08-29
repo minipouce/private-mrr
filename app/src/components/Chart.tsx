@@ -9,17 +9,17 @@ interface Props {
   height?: number;
   width: number;
   showDot?: boolean;
-  /** Ligne horizontale de référence (moyenne, objectif…). */
+  /** Horizontal reference line (average, goal, ...). */
   baseline?: boolean;
 }
 
 /**
- * Courbe d'aire lissée.
+ * Smoothed area chart.
  *
- * Le lissage utilise des Bézier cubiques dont les points de contrôle sont
- * dérivés des voisins immédiats (Catmull-Rom). Le facteur 6 est volontairement
- * conservateur : au-delà, la courbe dépasse les valeurs réelles et laisse
- * croire à des pics qui n'existent pas.
+ * Smoothing uses cubic Béziers whose control points derive from the immediate
+ * neighbours (Catmull-Rom). The factor of 6 is deliberately conservative: any
+ * higher and the curve overshoots the real values, suggesting peaks that do not
+ * exist.
  */
 function buildPaths(values: number[], width: number, height: number, pad: number) {
   if (values.length < 2) return { line: '', area: '', last: { x: 0, y: 0 } };

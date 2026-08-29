@@ -3,16 +3,16 @@ import { monthlyNormalized, toBaseCents, toInternalCents } from '../lib/money.js
 import { invoiceSubscriptionId, invoicePaymentIntents, chargePaymentIntent } from './compat.js';
 import type { NewEvent, NewSubscription, EventKind } from '../db/repo.js';
 
-/** Statuts qui contribuent au MRR facturé. */
+/** Statuses that contribute to billed MRR. */
 export const MRR_STATUSES = ['active', 'past_due'];
-/** Statuts en essai : suivis à part, ils ne génèrent pas encore de revenu. */
+/** Trial statuses: tracked separately, they generate no revenue yet. */
 export const TRIAL_STATUSES = ['trialing'];
 
 type MaybeExpanded<T> = string | T | null | undefined;
 
 /**
- * Forme minimale d'une remise. Le SDK a fait évoluer `Stripe.Discount` entre
- * versions d'API ; on ne dépend que des champs réellement utilisés.
+ * Minimal shape of a discount. The SDK has reshaped `Stripe.Discount` across API
+ * versions, so only the fields actually used are relied upon.
  */
 interface DiscountLike {
   coupon?: {
@@ -40,7 +40,7 @@ function customerFields(ref: MaybeExpanded<Stripe.Customer | Stripe.DeletedCusto
   };
 }
 
-/** Extrait les remises exploitables d'un porteur (abonnement ou client). */
+/** Extracts usable discounts from a holder (subscription or customer). */
 function collectDiscounts(holder: unknown): DiscountLike[] {
   const raw = holder as {
     discount?: DiscountLike | null;
@@ -51,21 +51,21 @@ function collectDiscounts(holder: unknown): DiscountLike[] {
   const out: DiscountLike[] = [];
   if (raw.discount) out.push(raw.discount);
   for (const d of raw.discounts ?? []) {
-    // Une remise non étendue n'est qu'un identifiant : inexploitable ici.
+    // An unexpanded discount is just an id: unusable here.
     if (typeof d !== 'string' && d) out.push(d);
   }
   return out;
 }
 
 /**
- * Applique les remises à un montant brut.
+ * Applies discounts to a gross amount.
  *
- * Deux niveaux cumulables : la remise portée par l'abonnement, et celle portée
- * par le client — cette dernière s'applique à toutes ses factures sans figurer
- * sur l'abonnement. L'ignorer fait compter en MRR des comptes offerts dont
- * Stripe ne facturera jamais rien.
+ * Two levels stack: the discount held by the subscription, and the one held by
+ * the customer. The latter applies to every invoice without appearing on the
+ * subscription, and ignoring it counts comped accounts towards MRR for money
+ * Stripe will never bill.
  *
- * La remise client n'est lisible que si le client a été étendu à la lecture.
+ * The customer discount is only readable when the customer was expanded.
  */
 function applyDiscounts(sub: Stripe.Subscription, amountCents: number): number {
   const discounts = [
@@ -98,8 +98,8 @@ export interface SubscriptionEconomics {
 }
 
 /**
- * Calcule le MRR d'un abonnement en sommant ses lignes, chacune ramenée au mois.
- * Un abonnement peut mêler des périodicités différentes (mensuel + annuel).
+ * Computes a subscription's MRR by summing its items, each normalised to a
+ * month. One subscription can mix intervals, for instance monthly and yearly.
  */
 export function subscriptionEconomics(sub: Stripe.Subscription): SubscriptionEconomics {
   const items = sub.items?.data ?? [];
@@ -151,7 +151,7 @@ export function subscriptionEconomics(sub: Stripe.Subscription): SubscriptionEco
   };
 }
 
-/** `current_period_end` a migré au niveau des items sur les API récentes. */
+/** `current_period_end` moved to item level on recent API versions. */
 function periodEnd(sub: Stripe.Subscription): number | null {
   const raw = sub as unknown as { current_period_end?: number };
   if (typeof raw.current_period_end === 'number') return raw.current_period_end;
@@ -176,7 +176,7 @@ export function normalizeSubscription(
     interval: econ.interval,
     interval_count: econ.intervalCount,
     quantity: econ.quantity,
-    // Un abonnement annulé ou en essai est conservé en base mais pèse 0 dans le MRR.
+    // A cancelled or trialing subscription is kept, but weighs 0 in MRR.
     mrr_cents: isBilling ? econ.mrrCents : 0,
     mrr_base_cents: isBilling ? econ.mrrBaseCents : 0,
     product_name: econ.productName,
@@ -220,8 +220,8 @@ export function eventFromInvoice(
   stripeEventId: string | null,
 ): NewEvent {
   const currency = invoice.currency ?? 'eur';
-  // `amount_paid` reflète l'encaissement réel ; on retombe sur `amount_due`
-  // pour les échecs de paiement, où rien n'a été encaissé.
+  // `amount_paid` reflects what was actually collected; fall back to
+  // `amount_due` for failures, where nothing was collected.
   const gross = kind === 'payment' ? (invoice.amount_paid ?? 0) : (invoice.amount_due ?? 0);
   const cents = toInternalCents(gross, currency);
 
@@ -233,9 +233,9 @@ export function eventFromInvoice(
     ...customerFields(invoice.customer),
     customer_email: invoice.customer_email ?? customerFields(invoice.customer).customer_email,
     subscription_id: invoiceSubscriptionId(invoice),
-    // Renseigné uniquement si la facture a été lue avec `expand: ['data.payments']`.
+    // Only populated when the invoice was read with `expand: ['data.payments']`.
     payment_intent: invoicePaymentIntents(invoice)[0] ?? null,
-    // Distingue une première souscription d'un renouvellement de cycle.
+    // Distinguishes a first subscription from a billing cycle renewal.
     billing_reason: invoice.billing_reason ?? null,
     description: invoice.lines?.data?.[0]?.description ?? invoice.number ?? null,
     occurred_at: invoice.status_transitions?.paid_at ?? invoice.created,
@@ -271,7 +271,7 @@ export function eventFromRefund(
   const cents = toInternalCents(charge.amount_refunded ?? 0, currency);
   return {
     ...baseEvent(projectId, 'refund', charge.id, charge.created, stripeEventId),
-    // Montant négatif : le ledger reste sommable sans traitement particulier.
+    // Negative amount, so the ledger stays summable without special handling.
     amount_cents: -cents,
     currency,
     amount_base_cents: -toBaseCents(cents, currency),

@@ -13,7 +13,7 @@ const LOOK: Record<Status, { tint: string; label: keyof typeof import('../i18n/s
   unconfigured: { tint: colors.textFaint, label: 'unconfigured' },
 };
 
-/** Pastille d'état du flux temps réel, avec pulsation quand la connexion est vivante. */
+/** Real-time stream status badge, pulsing while the connection is alive. */
 export function LiveBadge({ status }: { status: Status }) {
   const look = LOOK[status];
   const pulse = useRef(new Animated.Value(0)).current;

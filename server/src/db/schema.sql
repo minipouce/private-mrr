@@ -1,6 +1,6 @@
--- Schéma du ledger d'événements et de l'état des abonnements.
--- Tous les montants sont des entiers en centimes. `amount_cents` est exprimé
--- dans la devise d'origine, `amount_base_cents` dans la devise de consolidation.
+-- Event ledger and subscription state.
+-- Every amount is an integer in cents. `amount_cents` is expressed in the
+-- original currency, `amount_base_cents` in the base currency.
 
 PRAGMA journal_mode = WAL;
 PRAGMA foreign_keys = ON;
@@ -9,20 +9,20 @@ CREATE TABLE IF NOT EXISTS projects (
   id          TEXT PRIMARY KEY,
   name        TEXT NOT NULL,
   color       TEXT NOT NULL DEFAULT '#6366f1',
-  -- Exclure un projet du total consolidé sans cesser de le suivre : utile pour
-  -- un compte de test, ou un projet entièrement offert qui fausserait la lecture.
+  -- Exclude a project from the consolidated total without ceasing to track it:
+  -- useful for a test account, or a fully comped project that would skew it.
   include_in_totals INTEGER NOT NULL DEFAULT 1,
-  -- Dernière récupération du logo de marque depuis Stripe.
+  -- Last time the brand logo was fetched from Stripe.
   logo_updated_at INTEGER,
-  -- Objectif de revenu, en centimes de la devise de consolidation.
+  -- Revenue goal, in cents of the base currency.
   goal_cents      INTEGER,
-  -- Nature de l'objectif : 'mrr' ou 'arr'.
+  -- Goal kind: 'mrr' or 'arr'.
   goal_kind       TEXT NOT NULL DEFAULT 'mrr',
   created_at  INTEGER NOT NULL
 );
 
--- Ledger append-only. `stripe_event_id` garantit l'idempotence : Stripe peut
--- relivrer un webhook plusieurs fois, on n'insère qu'une seule occurrence.
+-- Append-only ledger. `stripe_event_id` guarantees idempotence: Stripe may
+-- redeliver a webhook several times, and only one row is inserted.
 CREATE TABLE IF NOT EXISTS events (
   id                 INTEGER PRIMARY KEY AUTOINCREMENT,
   project_id         TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
@@ -38,8 +38,8 @@ CREATE TABLE IF NOT EXISTS events (
   customer_name      TEXT,
   subscription_id    TEXT,
   payment_intent     TEXT,
-  -- Motif Stripe de la facture : distingue une première souscription d'un
-  -- renouvellement, information invisible sur le seul montant encaissé.
+  -- Stripe's billing reason: separates a first subscription from a renewal,
+  -- which the collected amount alone cannot tell you.
   billing_reason     TEXT,
   description        TEXT,
   occurred_at        INTEGER NOT NULL,
@@ -52,16 +52,15 @@ CREATE INDEX IF NOT EXISTS idx_events_project_time ON events (project_id, occurr
 CREATE INDEX IF NOT EXISTS idx_events_kind_time    ON events (kind, occurred_at DESC);
 CREATE INDEX IF NOT EXISTS idx_events_object       ON events (project_id, stripe_object_id);
 
--- Un encaissement se matérialise à la fois par une facture et par une charge.
--- Aucun champ ne les relie sur les versions récentes de l'API : le payment
--- intent est le seul identifiant commun. Cet index garantit qu'un même
--- encaissement n'est compté qu'une fois, quel que soit l'ordre d'arrivée.
+-- A payment materialises as both an invoice and a charge. No field links them
+-- on recent API versions: the payment intent is the only shared identifier.
+-- This index guarantees one payment is counted once, whatever the arrival order.
 CREATE UNIQUE INDEX IF NOT EXISTS idx_events_payment_intent
   ON events (project_id, payment_intent)
   WHERE payment_intent IS NOT NULL AND kind = 'payment';
 
--- État courant de chaque abonnement, reconstruit depuis Stripe puis maintenu
--- par les webhooks. C'est la source de vérité du MRR instantané.
+-- Current state of each subscription, rebuilt from Stripe then maintained by
+-- webhooks. This is the source of truth for instantaneous MRR.
 CREATE TABLE IF NOT EXISTS subscriptions (
   id                  TEXT NOT NULL,
   project_id          TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
@@ -87,7 +86,7 @@ CREATE TABLE IF NOT EXISTS subscriptions (
 CREATE INDEX IF NOT EXISTS idx_subs_status  ON subscriptions (status);
 CREATE INDEX IF NOT EXISTS idx_subs_project ON subscriptions (project_id, status);
 
--- Jetons de notification Expo. Un par appareil.
+-- Device push tokens. One per device.
 CREATE TABLE IF NOT EXISTS push_tokens (
   token        TEXT PRIMARY KEY,
   device_name  TEXT,
@@ -95,7 +94,7 @@ CREATE TABLE IF NOT EXISTS push_tokens (
   last_seen_at INTEGER NOT NULL
 );
 
--- Préférences de notification par projet. L'absence de ligne vaut "tout activé".
+-- Per-project notification preferences. A missing row means everything is on.
 CREATE TABLE IF NOT EXISTS notification_prefs (
   project_id         TEXT PRIMARY KEY REFERENCES projects(id) ON DELETE CASCADE,
   notify_payments    INTEGER NOT NULL DEFAULT 1,
@@ -105,7 +104,7 @@ CREATE TABLE IF NOT EXISTS notification_prefs (
   min_amount_cents   INTEGER NOT NULL DEFAULT 0
 );
 
--- Suivi du backfill pour ne rejouer l'historique qu'une fois par projet.
+-- Backfill tracking, so history is replayed only once per project.
 CREATE TABLE IF NOT EXISTS sync_state (
   project_id         TEXT PRIMARY KEY REFERENCES projects(id) ON DELETE CASCADE,
   backfill_done      INTEGER NOT NULL DEFAULT 0,
@@ -114,15 +113,15 @@ CREATE TABLE IF NOT EXISTS sync_state (
   last_error         TEXT
 );
 
--- Taux de change mis en cache, rafraîchis périodiquement.
+-- Cached exchange rates, refreshed periodically.
 CREATE TABLE IF NOT EXISTS fx_rates (
   currency    TEXT PRIMARY KEY,
   rate        REAL NOT NULL,
   updated_at  INTEGER NOT NULL
 );
 
--- Réglages globaux, sous forme clé/valeur : peu nombreux et hétérogènes,
--- une table dédiée par réglage serait disproportionnée.
+-- Global settings as key/value pairs: few and heterogeneous, a dedicated table
+-- per setting would be disproportionate.
 CREATE TABLE IF NOT EXISTS settings (
   key        TEXT PRIMARY KEY,
   value      TEXT NOT NULL,

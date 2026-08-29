@@ -8,8 +8,8 @@ import { GoalBar } from './GoalBar';
 import { t, plural } from '../i18n';
 
 /**
- * Carte de projet : MRR en vedette, part du total en barre, et le mouvement
- * net du mois — ce qui permet de repérer d'un coup d'œil un projet qui décroche.
+ * Project card: MRR headlined, share of the total as a bar, and the month's net
+ * movement, which makes a slipping project obvious at a glance.
  */
 export function ProjectCard({
   metrics,

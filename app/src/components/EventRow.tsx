@@ -22,11 +22,11 @@ const PRESENTATION: Record<
 interface Props {
   event: RevenueEvent;
   currency?: string;
-  /** Déclenche un halo bref lorsque l'événement vient d'arriver en direct. */
+  /** Triggers a brief halo when the event has just arrived live. */
   flash?: boolean;
   onPress?: () => void;
   showProject?: boolean;
-  /** Renseigné par l'écran appelant, qui dispose de l'aperçu consolidé. */
+  /** Supplied by the calling screen, which holds the consolidated overview. */
   projectHasLogo?: boolean;
 }
 
@@ -43,8 +43,8 @@ export function EventRow({
 
   useEffect(() => {
     if (!flash) return;
-    // Montée quasi instantanée puis retombée lente : l'œil attrape l'arrivée
-    // sans que la ligne reste surlignée en permanence.
+    // A near-instant rise then a slow fade: the eye catches the arrival without
+    // the row staying highlighted forever.
     Animated.sequence([
       Animated.timing(glow, { toValue: 1, duration: 180, useNativeDriver: false }),
       Animated.timing(glow, { toValue: 0, duration: 1400, useNativeDriver: false }),

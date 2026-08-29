@@ -5,16 +5,16 @@ import { stripeFor } from '../stripe/client.js';
 import { ingestEvent, SUBSCRIBED_EVENTS } from '../stripe/ingest.js';
 
 /**
- * Endpoint webhook, un par compte Stripe : `/webhooks/stripe/:projectId`.
+ * Webhook endpoint, one per Stripe account: `/webhooks/stripe/:projectId`.
  *
- * Cette route est volontairement hors du périmètre d'authentification par jeton —
- * Stripe ne peut pas porter notre Bearer. L'authenticité est garantie par la
- * signature HMAC de Stripe, vérifiée sur le corps brut. Sans cette vérification,
- * n'importe qui pourrait injecter de faux paiements dans la base.
+ * This route sits deliberately outside bearer authentication, since Stripe
+ * cannot carry our token. Authenticity comes from Stripe's HMAC signature,
+ * verified against the raw body. Without that check, anyone could inject fake
+ * payments into the database.
  */
 export async function registerWebhooks(app: FastifyInstance): Promise<void> {
-  // La signature porte sur les octets exacts reçus : tout reparsing JSON
-  // (réordonnancement de clés, espaces) l'invaliderait.
+  // The signature covers the exact bytes received: any JSON re-parsing, key
+  // reordering or whitespace change would invalidate it.
   app.addContentTypeParser(
     'application/json',
     { parseAs: 'buffer' },
@@ -30,9 +30,9 @@ export async function registerWebhooks(app: FastifyInstance): Promise<void> {
       if (!project.webhookSecret) {
         request.log.error(
           { project: project.id },
-          'webhook reçu mais aucun secret de signature configuré',
+          'webhook received but no signing secret configured',
         );
-        return reply.code(500).send({ error: 'webhook non configuré' });
+        return reply.code(500).send({ error: 'webhook not configured' });
       }
 
       const signature = request.headers['stripe-signature'];
@@ -45,8 +45,9 @@ export async function registerWebhooks(app: FastifyInstance): Promise<void> {
 
       let event: Stripe.Event;
       try {
-        // Vérifie la signature HMAC *et* la fenêtre temporelle (tolérance 5 min),
-        // ce qui bloque aussi le rejeu d'un webhook authentique capturé plus tôt.
+        // Verifies the HMAC signature *and* the time window (five-minute
+        // tolerance), which also blocks replay of a genuine webhook captured
+        // earlier.
         event = stripe.webhooks.constructEvent(
           request.body as Buffer,
           signature,
@@ -55,7 +56,7 @@ export async function registerWebhooks(app: FastifyInstance): Promise<void> {
       } catch (err) {
         request.log.warn(
           { project: project.id, ip: request.ip },
-          `signature webhook invalide : ${(err as Error).message}`,
+          `invalid webhook signature: ${(err as Error).message}`,
         );
         return reply.code(400).send({ error: 'signature invalide' });
       }
@@ -64,13 +65,13 @@ export async function registerWebhooks(app: FastifyInstance): Promise<void> {
         return reply.code(200).send({ ignored: event.type });
       }
 
-      // L'écriture en base est synchrone et donc déjà effectuée à ce point ;
-      // seul l'envoi push reste en cours. On acquitte immédiatement pour rester
-      // sous le délai d'attente de Stripe et éviter des relivraisons inutiles.
+      // The database write is synchronous and already done at this point; only
+      // the push send is still running. Acknowledge immediately to stay under
+      // Stripe's timeout and avoid pointless redeliveries.
       void ingestEvent(project, event).catch((err) => {
         request.log.error(
           { project: project.id, event: event.id },
-          `ingestion échouée : ${(err as Error).message}`,
+          `ingestion failed: ${(err as Error).message}`,
         );
       });
 

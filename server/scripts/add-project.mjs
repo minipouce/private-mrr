@@ -2,12 +2,12 @@
 /**
  * Ajoute un projet au fichier .env, avec un nommage de variables correct.
  *
- *   node scripts/add-project.mjs <identifiant> "<Nom affiché>" [couleur]
+ *   node scripts/add-project.mjs <id> "<Display name>" [colour]
  *
- * Le nom des variables dérive mécaniquement de l'identifiant
- * (`saas-a` -> `PROJECT_SAAS_A_*`) : c'est l'erreur la plus fréquente quand on
- * écrit les blocs à la main, et elle se traduit par un projet silencieusement
- * ignoré au démarrage.
+ * Variable names derive mechanically from the id (`saas-a` ->
+ * `PROJECT_SAAS_A_*`). Getting that wrong is the most common mistake when
+ * writing the blocks by hand, and it shows up as a project silently ignored at
+ * startup.
  */
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -44,7 +44,7 @@ if (env.includes(`${prefix}_STRIPE_KEY`)) {
   process.exit(1);
 }
 
-// Mise à jour de la liste PROJECTS, en préservant l'ordre existant.
+// Update the PROJECTS list, preserving the existing order.
 const match = env.match(/^PROJECTS=(.*)$/m);
 const existing = (match?.[1] ?? '').split(',').map((s) => s.trim()).filter(Boolean);
 if (existing.includes(id)) {

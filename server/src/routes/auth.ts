@@ -5,14 +5,14 @@ import { config } from '../config.js';
 const expected = Buffer.from(config.apiToken, 'utf8');
 
 /**
- * Comparaison à temps constant : une comparaison naïve (`a === b`) laisse fuiter
- * la longueur du préfixe correct et permet de reconstituer le jeton octet par octet.
+ * Constant-time comparison: a naive `a === b` leaks the length of the correct
+ * prefix through timing, letting a token be reconstructed byte by byte.
  */
 function tokenMatches(candidate: string): boolean {
   const given = Buffer.from(candidate, 'utf8');
   if (given.length !== expected.length) {
-    // On compare quand même contre une valeur factice pour ne pas révéler
-    // la longueur attendue par le temps de réponse.
+    // Still compare against a dummy value so the expected length is not revealed
+    // by response time.
     timingSafeEqual(expected, expected);
     return false;
   }
@@ -36,9 +36,9 @@ export async function requireAuth(
   if (!token || !tokenMatches(token)) {
     request.log.warn(
       { ip: request.ip, path: request.url },
-      'tentative d accès non authentifiée',
+      'unauthenticated access attempt',
     );
-    // Réponse volontairement laconique : aucun indice sur la cause de l'échec.
+    // Deliberately terse response: no hint about why it failed.
     return reply.code(401).send({ error: 'unauthorized' });
   }
 }

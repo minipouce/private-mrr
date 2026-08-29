@@ -3,19 +3,18 @@ import { readFileSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 /**
- * Client Firebase Cloud Messaging (HTTP v1).
+ * Firebase Cloud Messaging client (HTTP v1).
  *
- * Envoi direct depuis ce serveur, sans passer par le service push d'Expo :
- * le contenu des notifications — nom du client, montant — ne transite donc par
- * aucun intermédiaire supplémentaire.
+ * Sends directly from this server, bypassing Expo's push service: notification
+ * content, customer names and amounts included, passes through no extra
+ * intermediary.
  *
- * L'authentification suit le flot OAuth2 « JWT bearer » de Google : on signe
- * une assertion avec la clé privée du compte de service, on l'échange contre un
- * jeton d'accès valable une heure, et on le met en cache.
+ * Authentication follows Google's OAuth2 JWT-bearer flow: sign an assertion with
+ * the service account private key, exchange it for an access token valid one
+ * hour, and cache it.
  *
- * La signature RS256 est faite avec le module `crypto` de Node : une
- * bibliothèque JWT n'apporterait rien ici et ajouterait une dépendance qui
- * manipule des secrets.
+ * The RS256 signature uses Node's `crypto` module: a JWT library would add
+ * nothing here beyond a dependency that handles secrets.
  */
 
 interface ServiceAccount {
@@ -77,7 +76,7 @@ const base64url = (input: Buffer | string): string =>
 
 let cachedToken: { value: string; expiresAt: number } | null = null;
 
-/** Jeton d'accès OAuth2, renouvelé une minute avant expiration. */
+/** OAuth2 access token, renewed a minute before it expires. */
 async function accessToken(): Promise<string | null> {
   const sa = loadAccount();
   if (!sa) return null;
@@ -125,13 +124,13 @@ export interface FcmMessage {
   token: string;
   title: string;
   body: string;
-  /** FCM n'accepte que des chaînes dans `data` : les nombres sont convertis. */
+  /** FCM only accepts strings in `data`, so numbers are converted. */
   data?: Record<string, string | number>;
   channelId?: string;
-  /** Nom de ressource du son, sans extension de chemin. */
+  /** Sound resource name, without a path. */
   sound?: string;
   color?: string;
-  /** Image affichée lorsque la notification est dépliée. */
+  /** Image shown when the notification is expanded. */
   imageUrl?: string;
 }
 
@@ -139,7 +138,7 @@ export type SendOutcome =
   | { ok: true }
   | { ok: false; retryable: boolean; unregistered: boolean; message: string };
 
-/** Envoie une notification à un appareil. N'émet jamais d'exception. */
+/** Sends a notification to one device. Never throws. */
 export async function sendToDevice(message: FcmMessage): Promise<SendOutcome> {
   const sa = loadAccount();
   if (!sa) {
@@ -164,8 +163,8 @@ export async function sendToDevice(message: FcmMessage): Promise<SendOutcome> {
         priority: 'HIGH',
         notification: {
           channel_id: message.channelId ?? 'revenue',
-          // Sur Android 8 et suivants, le son du canal prime ; ce champ ne sert
-          // que de repli pour les versions antérieures.
+          // On Android 8 and later the channel sound wins; this field only serves
+          // as a fallback for earlier versions.
           sound: message.sound ?? 'default',
           color: message.color ?? '#6366F1',
           default_vibrate_timings: true,
@@ -196,16 +195,16 @@ export async function sendToDevice(message: FcmMessage): Promise<SendOutcome> {
 
     const text = await res.text();
 
-    // 404 UNREGISTERED : l'app a été désinstallée ou le jeton renouvelé.
-    // 400 INVALID_ARGUMENT sur le champ `token` : jeton malformé.
-    // Dans les deux cas le jeton est définitivement mort, on le purge.
+    // 404 UNREGISTERED: the app was uninstalled or the token rotated.
+    // 400 INVALID_ARGUMENT on `token`: malformed token.
+    // Either way the token is permanently dead, so it is purged.
     const unregistered =
       res.status === 404 ||
       (res.status === 400 && /registration token|INVALID_ARGUMENT/i.test(text));
 
     return {
       ok: false,
-      // 429 et 5xx sont temporaires : l'appelant peut réessayer plus tard.
+      // 429 and 5xx are transient: the caller may retry later.
       retryable: res.status === 429 || res.status >= 500,
       unregistered,
       message: `HTTP ${res.status} — ${text.slice(0, 200)}`,

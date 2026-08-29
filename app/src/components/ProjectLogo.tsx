@@ -6,10 +6,10 @@ import { colors, radius } from '../theme';
 /**
  * Logo d'un projet, avec repli sur une pastille de couleur.
  *
- * L'endpoint des logos est public — Firebase doit pouvoir charger la même image
- * pour les notifications — donc aucun en-tête d'authentification n'est requis
- * ici. En cas d'échec de chargement, on retombe silencieusement sur la pastille
- * plutôt que d'afficher une image cassée.
+ * The logo endpoint is public, because Firebase must be able to load the same
+ * image for notifications, so no authentication header is needed here. If
+ * loading fails, this falls back silently to the badge rather than showing a
+ * broken image.
  */
 export function ProjectLogo({
   projectId,
@@ -30,8 +30,8 @@ export function ProjectLogo({
   const showImage = hasLogo && projectId && config && !failed;
 
   if (!showImage) {
-    // Pastille : même empreinte visuelle que le logo, pour que rien ne bouge
-    // dans la mise en page selon qu'un projet en ait un ou non.
+    // The badge keeps the same visual footprint as the logo, so the layout does
+    // not shift depending on whether a project has one.
     return (
       <View
         style={[

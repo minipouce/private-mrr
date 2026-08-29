@@ -4,9 +4,9 @@ import { config, type ProjectConfig } from '../config.js';
 const clients = new Map<string, Stripe>();
 
 /**
- * Client Stripe par projet, mémoïsé.
- * Retourne `null` si le projet n'a pas de clé (mode démo ou projet archivé),
- * ce qui permet aux appelants de dégrader proprement plutôt que de planter.
+ * Per-project Stripe client, memoised.
+ * Returns `null` when a project has no key (demo mode, or an archived project),
+ * letting callers degrade gracefully instead of crashing.
  */
 export function stripeFor(project: ProjectConfig): Stripe | null {
   if (!project.stripeKey) return null;
@@ -24,22 +24,22 @@ export function stripeFor(project: ProjectConfig): Stripe | null {
   return client;
 }
 
-/** Projets réellement connectés à Stripe (clé présente). */
+/** Projects actually connected to Stripe (key present). */
 export function liveProjects(): ProjectConfig[] {
   return config.projects.filter((p) => p.stripeKey);
 }
 
 /**
- * Vérifie que chaque clé configurée est valide et lisible.
- * Exécuté au démarrage pour échouer tôt plutôt qu'au premier webhook.
+ * Checks that every configured key is valid and readable.
+ * Runs at startup so failures surface early rather than on the first webhook.
  */
 export async function verifyKeys(): Promise<void> {
   for (const project of liveProjects()) {
     const stripe = stripeFor(project)!;
     try {
-      // On sonde une ressource réellement utilisée par l'application plutôt que
-      // le solde : exiger la permission Balance élargirait inutilement la portée
-      // des clés, alors que le solde n'est jamais lu.
+      // Probe a resource the application actually uses rather than the balance:
+      // requiring Balance read would widen the keys' scope for nothing, since
+      // the balance is never read.
       await stripe.subscriptions.list({ limit: 1 });
       const mode = project.stripeKey!.includes('_live_') ? 'live' : 'test';
       const restricted = project.stripeKey!.startsWith('rk_');
@@ -53,7 +53,7 @@ export async function verifyKeys(): Promise<void> {
         );
       }
     } catch (err) {
-      // On ne journalise jamais la clé elle-même, seulement l'identifiant projet.
+      // Never log the key itself, only the project id.
       console.error(
         `[stripe] ${project.id}: invalid key or insufficient permissions: ${(err as Error).message}`,
       );

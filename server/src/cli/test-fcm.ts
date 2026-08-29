@@ -1,8 +1,8 @@
 /**
- * Vérifie la chaîne d'authentification FCM sans notifier personne.
+ * Verifies the FCM authentication chain without notifying anyone.
  *
- *   npm run test:fcm              -> valide l'authentification OAuth2
- *   npm run test:fcm -- <jeton>   -> envoie réellement à un appareil
+ *   npm run test:fcm              -> validates OAuth2 authentication
+ *   npm run test:fcm -- <token>   -> actually sends to a device
  */
 import { sendToDevice, isConfigured, fcmProjectId } from '../push/fcm.js';
 

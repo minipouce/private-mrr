@@ -17,7 +17,7 @@ interface LiveState {
   events: RevenueEvent[];
   status: Status;
   error: string | null;
-  /** Identifiant du dernier événement reçu en direct, pour animer sa ligne. */
+  /** Id of the last event received live, used to animate its row. */
   flashId: number | null;
   refresh: () => Promise<void>;
   reconfigure: () => Promise<void>;
@@ -51,8 +51,8 @@ export function LiveProvider({ children }: { children: React.ReactNode }) {
       setEvents(feed.events);
       setError(null);
       setStatus('live');
-      // Android ne rafraîchit le widget que toutes les 30 minutes au mieux :
-      // on le remet à jour dès qu'on dispose de chiffres frais.
+      // Android refreshes the widget every 30 minutes at best, so it is
+      // updated as soon as fresh figures are available.
       void refreshWidget();
     } catch (err) {
       if (!mountedRef.current) return;
@@ -92,13 +92,13 @@ export function LiveProvider({ children }: { children: React.ReactNode }) {
         if (type === 'event') {
           const incoming = data as RevenueEvent;
           setEvents((prev) => {
-            // Le backfill et le direct peuvent se recouper : on déduplique.
+            // The backfill and the live stream can overlap, so deduplicate.
             if (prev.some((e) => e.id === incoming.id)) return prev;
             return [incoming, ...prev].slice(0, MAX_EVENTS);
           });
           setFlashId(incoming.id);
 
-          // Retour haptique : un encaissement se sent sans regarder l'écran.
+          // Haptic feedback: a payment can be felt without looking at the screen.
           if (incoming.kind === 'payment' || incoming.kind === 'subscription_created') {
             void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
           } else if (
@@ -121,9 +121,9 @@ export function LiveProvider({ children }: { children: React.ReactNode }) {
     mountedRef.current = true;
     void start();
 
-    // Android suspend les sockets en arrière-plan : au retour au premier plan
-    // on resynchronise puis on rouvre le flux, sinon l'écran affiche des
-    // chiffres périmés sans que rien ne le signale.
+    // Android suspends background sockets, so on returning to the foreground we
+    // resynchronise then reopen the stream. Otherwise the screen shows stale
+    // figures with nothing to indicate it.
     const onAppState = (next: AppStateStatus) => {
       if (next === 'active') void start();
       else streamRef.current?.close();
@@ -131,9 +131,9 @@ export function LiveProvider({ children }: { children: React.ReactNode }) {
 
     const sub = AppState.addEventListener('change', onAppState);
 
-    // Filet de sécurité indépendant du flux : même si le SSE échouait
-    // silencieusement malgré son chien de garde, les chiffres ne resteraient
-    // jamais périmés plus de 90 secondes.
+    // A safety net independent of the stream: even if SSE failed silently
+    // despite its watchdog, the figures would never be stale for more than
+    // 90 seconds.
     const safetyNet = setInterval(() => {
       if (AppState.currentState === 'active') void load();
     }, 90_000);
@@ -164,6 +164,6 @@ export function LiveProvider({ children }: { children: React.ReactNode }) {
 
 export function useLive(): LiveState {
   const context = useContext(LiveContext);
-  if (!context) throw new Error('useLive doit être utilisé dans un LiveProvider');
+  if (!context) throw new Error('useLive must be used inside a LiveProvider');
   return context;
 }

@@ -2,34 +2,34 @@ import 'dotenv/config';
 import { randomBytes } from 'node:crypto';
 
 /**
- * Configuration multi-comptes.
+ * Multi-account configuration.
  *
- * Chaque projet correspond à un compte Stripe distinct et se déclare via un
- * groupe de variables d'environnement préfixées. Exemple pour le projet `saas-a` :
+ * Each project maps to a distinct Stripe account and is declared through a
+ * group of prefixed environment variables. For a project named `saas-a`:
  *
  *   PROJECTS=saas-a,saas-b
  *   PROJECT_SAAS_A_NAME="SaaS A"
- *   PROJECT_SAAS_A_STRIPE_KEY=sk_live_xxx
+ *   PROJECT_SAAS_A_STRIPE_KEY=rk_live_xxx
  *   PROJECT_SAAS_A_WEBHOOK_SECRET=whsec_xxx
- *   PROJECT_SAAS_A_COLOR=#6366f1
+ *   PROJECT_SAAS_A_COLOR="#6366f1"
  *
- * Les clés Stripe ne quittent jamais le serveur : elles ne sont ni stockées en
- * base, ni exposées par l'API, ni journalisées.
+ * Stripe keys never leave the server: they are not stored in the database, not
+ * exposed by the API, and never logged.
  */
 
 export interface ProjectConfig {
-  /** Identifiant stable utilisé en base et dans l'API (ex. `saas-a`). */
+  /** Stable id used in the database and the API (for example `saas-a`). */
   id: string;
   name: string;
-  /** Clé secrète Stripe. Absente en mode démo. */
+  /** Stripe secret key. Absent in demo mode. */
   stripeKey: string | null;
-  /** Secret de signature du webhook Stripe pour ce compte. */
+  /** Stripe webhook signing secret for this account. */
   webhookSecret: string | null;
-  /** Couleur d'accent utilisée par l'app pour identifier le projet. */
+  /** Accent colour the app uses to identify the project. */
   color: string;
 }
 
-/** Palette par défaut, assignée dans l'ordre de déclaration des projets. */
+/** Default palette, assigned in declaration order. */
 const DEFAULT_COLORS = [
   '#6366f1',
   '#10b981',
@@ -41,17 +41,17 @@ const DEFAULT_COLORS = [
   '#14b8a6',
 ];
 
-/** `saas-a` -> `SAAS_A`, pour reconstituer le préfixe des variables d'env. */
+/** `saas-a` -> `SAAS_A`, to rebuild the environment variable prefix. */
 function envKey(projectId: string): string {
   return projectId.toUpperCase().replace(/[^A-Z0-9]+/g, '_');
 }
 
 /**
- * Lit une variable d'environnement en traitant la chaîne vide comme absente.
+ * Reads an environment variable, treating an empty string as absent.
  *
- * Nécessaire car `??` ne bascule pas sur la valeur par défaut pour `''` : une
- * couleur non quotée comme `COLOR=#6366f1` est tronquée par dotenv, qui voit
- * un commentaire après le `#`, et produit silencieusement une chaîne vide.
+ * Necessary because `??` does not fall back for `''`: an unquoted colour such
+ * as `COLOR=#6366f1` is truncated by dotenv, which reads everything after `#`
+ * as a comment, silently yielding an empty string.
  */
 function env(name: string): string | null {
   const value = process.env[name]?.trim();
@@ -82,18 +82,18 @@ function readApiToken(): string {
   const token = process.env.API_TOKEN?.trim();
   if (token) return token;
 
-  // En développement on génère un token éphémère plutôt que d'échouer au
-  // démarrage, mais on refuse ce comportement en production.
+  // In development, generate an ephemeral token rather than refusing to boot.
+  // In production that behaviour would be unacceptable.
   if (process.env.NODE_ENV === 'production') {
     throw new Error(
-      'API_TOKEN est obligatoire en production. Générez-en un avec: openssl rand -hex 32',
+      'API_TOKEN is required in production. Generate one with: openssl rand -hex 32',
     );
   }
 
   const generated = randomBytes(32).toString('hex');
   console.warn(
-    `\n  API_TOKEN absent — token éphémère généré pour cette session :\n  ${generated}\n` +
-      `  Ajoutez-le à votre .env pour qu'il survive au redémarrage.\n`,
+    `\n  API_TOKEN missing — ephemeral token generated for this session:\n  ${generated}\n` +
+      `  Add it to your .env so it survives a restart.\n`,
   );
   return generated;
 }
@@ -106,19 +106,19 @@ export const config = {
   dbPath: process.env.DB_PATH ?? './data/mrr.db',
   apiToken: readApiToken(),
 
-  /** Devise de consolidation. Tous les montants agrégés y sont convertis. */
+  /** Base currency. Every aggregated amount is converted into it. */
   baseCurrency: (process.env.BASE_CURRENCY ?? 'eur').toLowerCase(),
 
   /**
-   * URL publique du serveur. Indispensable aux notifications : Firebase charge
-   * l'image du logo depuis Internet, une adresse locale ne lui servirait à rien.
+   * Public URL of this server. Required for notifications: Firebase fetches the
+   * logo image over the internet, so a local address would be useless to it.
    */
   publicUrl: (process.env.PUBLIC_URL ?? '').replace(/\/+$/, ''),
 
-  /** Alimente la base avec des données fictives au lieu d'appeler Stripe. */
+  /** Fills the database with fictional data instead of calling Stripe. */
   demoMode: process.env.DEMO_MODE === 'true',
 
-  /** Rejoue l'historique Stripe complet au démarrage si le projet n'a jamais été synchronisé. */
+  /** Replays the full Stripe history at boot if a project was never synced. */
   backfillOnBoot: process.env.BACKFILL_ON_BOOT !== 'false',
 
   projects,
@@ -127,6 +127,6 @@ export const config = {
 
 export function requireProject(id: string): ProjectConfig {
   const project = config.projectById.get(id);
-  if (!project) throw new Error(`Projet inconnu : ${id}`);
+  if (!project) throw new Error(`Unknown project: ${id}`);
   return project;
 }

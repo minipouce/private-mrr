@@ -17,15 +17,15 @@ import { registerWebhooks } from './routes/webhook.js';
 import { registerStream } from './routes/stream.js';
 
 const app = Fastify({
-  // Derrière Caddy : indispensable pour que `request.ip` reflète l'IP réelle
-  // et non celle du reverse-proxy, sinon le rate-limit devient inopérant.
+  // Behind a reverse proxy: required so `request.ip` reflects the real client
+  // rather than the proxy, without which rate limiting is useless.
   trustProxy: true,
-  // Un webhook Stripe dépasse rarement 100 Ko ; plafonner limite la surface d'abus.
+  // A Stripe webhook rarely exceeds 100 KB; a cap limits the abuse surface.
   bodyLimit: 1_048_576,
   logger: {
     level: process.env.LOG_LEVEL ?? 'info',
     redact: {
-      // Aucun jeton ni signature ne doit atterrir dans les journaux.
+      // No token or signature must ever reach the logs.
       paths: [
         'req.headers.authorization',
         'req.headers["stripe-signature"]',
@@ -42,12 +42,12 @@ const app = Fastify({
 
 async function boot(): Promise<void> {
   await app.register(helmet, {
-    // L'API ne sert que du JSON : aucune ressource à autoriser.
+    // The API only serves JSON: no resource to allow.
     contentSecurityPolicy: { directives: { defaultSrc: ["'none'"], frameAncestors: ["'none'"] } },
     hsts: { maxAge: 31_536_000, includeSubDomains: true },
   });
 
-  // Aucune de ces URL n'a vocation à être indexée.
+  // None of these URLs is meant to be indexed.
   app.addHook('onSend', async (_request, reply, payload) => {
     void reply.header('X-Robots-Tag', 'noindex, nofollow, noarchive');
     return payload;
@@ -57,10 +57,9 @@ async function boot(): Promise<void> {
     reply.type('text/plain').send('User-agent: *\nDisallow: /\n'),
   );
 
-  // Logos servis sans authentification : une notification push doit pouvoir
-  // charger l'image, et un logo de marque n'a rien de confidentiel. Le nom de
-  // projet demandé est validé contre la base pour éviter toute traversée de
-  // répertoire.
+  // Logos are served unauthenticated: a push notification must be able to load
+  // the image, and a brand logo is not confidential. The requested project id is
+  // validated against the database to prevent any path traversal.
   app.get<{ Params: { projectId: string } }>('/logos/:projectId', async (request, reply) => {
     const known = db
       .prepare('SELECT 1 FROM projects WHERE id = ?')
@@ -79,17 +78,16 @@ async function boot(): Promise<void> {
       .send(buf);
   });
 
-  // L'app mobile n'est pas un navigateur et n'émet pas de requête cross-origin :
-  // aucune origine web n'est autorisée par défaut.
+  // The mobile app is not a browser and issues no cross-origin request, so no
+  // web origin is allowed by default.
   await app.register(cors, {
     origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : false,
   });
 
   await app.register(rateLimit, {
-    // Les webhooks Stripe arrivent en rafale lors d'un pic de paiements, mais
-    // une exemption totale laisserait n'importe qui inonder l'endpoint s'il en
-    // découvrait l'URL. Le plafond est donc très au-dessus du trafic réel de
-    // Stripe, tout en restant borné.
+    // Stripe webhooks arrive in bursts during a payment spike, but a blanket
+    // exemption would let anyone flood the endpoint who discovered its URL. The
+    // ceiling therefore sits far above real Stripe traffic while staying bounded.
     max: (request) =>
       request.url.startsWith('/webhooks/stripe/')
         ? Number(process.env.RATE_LIMIT_WEBHOOK ?? 1000)
@@ -97,20 +95,20 @@ async function boot(): Promise<void> {
     timeWindow: '1 minute',
   });
 
-  // Sonde publique volontairement muette : elle sert au conteneur et au
-  // reverse-proxy, et ne doit rien révéler à qui découvrirait l'URL. Le détail
-  // (volumes, nombre de projets, appareils) est exposé derrière le jeton.
+  // Deliberately mute public probe: it serves the container and the reverse
+  // proxy, and must reveal nothing to whoever finds the URL. The detail (volumes,
+  // project and device counts) sits behind the token.
   app.get('/health', async () => ({ ok: true }));
 
-  // Webhooks : plugin isolé, sans authentification par jeton (signature Stripe),
-  // et avec son propre parseur de corps brut.
+  // Webhooks: isolated plugin, no bearer authentication (Stripe signature does
+  // the job), with its own raw-body parser.
   await app.register(registerWebhooks);
 
-  // API privée : tout est derrière le jeton Bearer.
+  // Private API: everything sits behind the bearer token.
   await app.register(async (instance) => {
-    // Certaines actions n'ont pas de données à transmettre. Un client qui
-    // annonce du JSON sans corps se verrait refusé par le parseur par défaut :
-    // on traite le corps vide comme un objet vide plutôt que comme une erreur.
+    // Some actions carry no data. A client announcing JSON with no body would be
+    // refused by the default parser, so an empty body is treated as an empty
+    // object rather than an error.
     instance.addContentTypeParser(
       'application/json',
       { parseAs: 'string' },
@@ -120,8 +118,8 @@ async function boot(): Promise<void> {
         try {
           done(null, JSON.parse(raw));
         } catch {
-          // Un corps illisible vient du client : le signaler comme tel plutôt
-          // que de laisser Fastify conclure à une panne du serveur.
+          // An unreadable body is a client mistake: report it as such rather than
+          // letting Fastify conclude the server failed.
           const error = new Error('Corps JSON invalide') as Error & { statusCode?: number };
           error.statusCode = 400;
           done(error, undefined);
@@ -138,24 +136,24 @@ async function boot(): Promise<void> {
   await refreshRates();
 
   if (config.demoMode) {
-    app.log.warn('DEMO_MODE actif : aucune connexion Stripe, données fictives');
+    app.log.warn('DEMO_MODE active: no Stripe connection, fictional data');
   } else {
     await verifyKeys();
   }
 
   if (!isPushConfigured()) {
     app.log.warn(
-      'notifications désactivées : clé de compte de service Firebase absente ' +
-        '(voir FCM_SERVICE_ACCOUNT_PATH)',
+      'notifications disabled: Firebase service account key missing ' +
+        '(see FCM_SERVICE_ACCOUNT_PATH)',
     );
   }
 
   await app.listen({ port: config.port, host: config.host });
   app.log.info(
-    `serveur prêt · ${config.projects.length} projet(s) · devise ${config.baseCurrency.toUpperCase()}`,
+    `server ready · ${config.projects.length} project(s) · currency ${config.baseCurrency.toUpperCase()}`,
   );
 
-  // Import de l'historique en arrière-plan : le serveur répond déjà pendant ce temps.
+  // History import runs in the background: the server already answers meanwhile.
   if (!config.demoMode && config.backfillOnBoot) {
     void (async () => {
       for (const project of liveProjects()) {
@@ -169,8 +167,8 @@ async function boot(): Promise<void> {
 }
 
 function scheduleJobs(): void {
-  // Réconciliation horaire : rattrape un webhook perdu pendant un redéploiement
-  // ou une coupure réseau. C'est le filet de sécurité du temps réel.
+  // Hourly reconciliation: catches a webhook lost during a redeploy or a network
+  // outage. It is the safety net under the real-time path.
   const hourly = setInterval(
     () => {
       if (config.demoMode) return;
@@ -186,14 +184,14 @@ function scheduleJobs(): void {
     if (!config.demoMode) void syncAllLogos(liveProjects());
   }, 24 * 60 * 60 * 1000);
 
-  // `unref` évite que ces minuteries maintiennent le processus en vie à l'arrêt.
+  // `unref` keeps these timers from holding the process alive on shutdown.
   hourly.unref();
   daily.unref();
 }
 
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.on(signal, () => {
-    app.log.info(`${signal} reçu, arrêt`);
+    app.log.info(`${signal} received, shutting down`);
     void app.close().then(() => {
       db.close();
       process.exit(0);

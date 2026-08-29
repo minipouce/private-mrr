@@ -51,8 +51,8 @@
           "widgets": [
             {
               "name": "Mrr",
-              "label": "MRR consolidé",
-              "description": "Ton MRR, le CA du jour et du mois, sans ouvrir l’application",
+              "label": "Consolidated MRR",
+              "description": "Your MRR, today's and this month's revenue, without opening the app",
               "minWidth": "110dp",
               "minHeight": "40dp",
               "targetCellWidth": 3,

@@ -1,20 +1,20 @@
 /**
- * Génère un jeu de données de démonstration réaliste : 24 mois d'historique,
- * croissance, changements de formule et attrition.
+ * Generates a realistic demo dataset: 24 months of history, growth, plan changes
+ * and churn.
  *
- * Les noms de projets sont ceux de l'auteur, ce qui rend les captures d'écran
- * plus parlantes — mais **tous les montants sont fabriqués**. Aucun chiffre ici
- * ne reflète un revenu réel, et la documentation le signale explicitement.
+ * The project names are the author's own products, which makes screenshots
+ * concrete, but **every amount is fabricated**. No figure here reflects real
+ * revenue, and the documentation says so explicitly.
  *
- *   npm run seed            -> alimente la base (ajoute aux données existantes)
- *   npm run seed -- --reset -> vide d'abord les tables
+ *   npm run seed            -> fills the database (adds to existing data)
+ *   npm run seed -- --reset -> clears the tables first
  *
- * Aucun appel à Stripe n'est effectué.
+ * No Stripe call is made.
  */
 import { db, syncProjectsFromConfig } from './db/index.js';
 import { insertEvent, upsertSubscription } from './db/repo.js';
 
-/** PRNG déterministe (mulberry32) : deux exécutions produisent le même jeu. */
+/** Deterministic PRNG (mulberry32): two runs produce the same dataset. */
 function rng(seed: number) {
   let a = seed >>> 0;
   return () => {
@@ -99,15 +99,15 @@ interface DemoSub {
 }
 
 /**
- * Répartit les abonnés sur 24 mois avec une acquisition croissante,
- * puis applique une attrition mensuelle d'environ 3 %.
+ * Spreads subscribers across 24 months with growing acquisition, then applies
+ * roughly 3% monthly churn.
  */
 function buildSubscribers(project: (typeof DEMO_PROJECTS)[number]): DemoSub[] {
   const subs: DemoSub[] = [];
-  // Poids croissant : le mois -24 recrute peu, le mois courant beaucoup.
+  // Growing weights: month -24 acquires little, the current month a lot.
   const weights = Array.from({ length: MONTHS }, (_, i) => Math.pow(1 + i / MONTHS, 2.2));
   const totalWeight = weights.reduce((a, b) => a + b, 0);
-  // On sur-recrute pour compenser les départs et retomber sur l'effectif visé.
+  // Over-acquire to offset churn and land on the target headcount.
   const gross = Math.round(project.subs * 1.55);
 
   let n = 0;
@@ -126,7 +126,7 @@ function buildSubscribers(project: (typeof DEMO_PROJECTS)[number]): DemoSub[] {
       const p = person();
       const annual = rand() < 0.18;
 
-      // Attrition composée : ~3 % par mois d'ancienneté.
+      // Compounded churn: about 3% per month of tenure.
       let canceledAt: Date | null = null;
       const ageMonths = -offset;
       if (rand() < 1 - Math.pow(0.97, Math.max(ageMonths, 0))) {
@@ -158,7 +158,8 @@ function seedProject(project: (typeof DEMO_PROJECTS)[number]): number {
 
   const run = db.transaction(() => {
     for (const sub of subs) {
-      // Un abonnement annuel paie 12x le tarif mensuel, mais pèse le tarif mensuel en MRR.
+      // A yearly subscription pays 12x the monthly rate but weighs the monthly
+      // rate in MRR.
       const mrr = sub.plan;
       const charge = sub.annual ? sub.plan * 12 : sub.plan;
       const active = !sub.canceledAt;
@@ -177,7 +178,7 @@ function seedProject(project: (typeof DEMO_PROJECTS)[number]): number {
         quantity: 1,
         mrr_cents: active ? mrr : 0,
         mrr_base_cents: active ? mrr : 0,
-        product_name: sub.annual ? 'Annuel' : 'Mensuel',
+        product_name: sub.annual ? 'Yearly' : 'Monthly',
         started_at: sec(sub.startedAt),
         canceled_at: sub.canceledAt ? sec(sub.canceledAt) : null,
         current_period_end: null,
@@ -200,14 +201,14 @@ function seedProject(project: (typeof DEMO_PROJECTS)[number]): number {
             subscription_id: sub.id,
             payment_intent: null,
             billing_reason: null,
-            description: sub.annual ? 'Annuel' : 'Mensuel',
+            description: sub.annual ? 'Yearly' : 'Monthly',
             occurred_at: sec(sub.startedAt),
           },
           { publish: false },
         )
       ) events++;
 
-      // Facturation périodique jusqu'à aujourd'hui ou jusqu'à l'annulation.
+      // Recurring billing up to today, or up to cancellation.
       const end = sub.canceledAt ?? now;
       const cursor = new Date(sub.startedAt);
       let cycle = 0;
@@ -229,14 +230,14 @@ function seedProject(project: (typeof DEMO_PROJECTS)[number]): number {
               subscription_id: sub.id,
               payment_intent: null,
               billing_reason: null,
-              description: `${project.name} · ${sub.annual ? 'Annuel' : 'Mensuel'}`,
+              description: `${project.name} · ${sub.annual ? 'Yearly' : 'Monthly'}`,
               occurred_at: sec(cursor),
             },
             { publish: false },
           )
         ) events++;
 
-        // ~4 % d'échecs de paiement, rejoués le cycle suivant.
+        // About 4% payment failures, retried on the next cycle.
         if (rand() < 0.04) {
           const failedAt = new Date(cursor);
           failedAt.setDate(failedAt.getDate() + 1);
@@ -257,7 +258,7 @@ function seedProject(project: (typeof DEMO_PROJECTS)[number]): number {
                 subscription_id: sub.id,
                 payment_intent: null,
                 billing_reason: null,
-                description: 'Carte refusée',
+                description: 'Card declined',
                 occurred_at: sec(failedAt),
               },
               { publish: false },
@@ -270,7 +271,7 @@ function seedProject(project: (typeof DEMO_PROJECTS)[number]): number {
         cycle++;
       }
 
-      // Upgrades ponctuels sur les abonnements encore actifs.
+      // Occasional upgrades on still-active subscriptions.
       if (active && rand() < 0.12) {
         const upAt = new Date(sub.startedAt);
         upAt.setMonth(upAt.getMonth() + Math.floor(between(2, 8)));
@@ -292,7 +293,7 @@ function seedProject(project: (typeof DEMO_PROJECTS)[number]): number {
               subscription_id: sub.id,
               payment_intent: null,
               billing_reason: null,
-              description: 'Changement de formule',
+              description: 'Plan change',
               occurred_at: sec(upAt),
             },
             { publish: false },
@@ -318,7 +319,7 @@ function seedProject(project: (typeof DEMO_PROJECTS)[number]): number {
             subscription_id: sub.id,
             payment_intent: null,
             billing_reason: null,
-            description: 'Abonnement résilié',
+            description: 'Subscription cancelled',
             occurred_at: sec(sub.canceledAt),
           },
           { publish: false },
@@ -327,7 +328,7 @@ function seedProject(project: (typeof DEMO_PROJECTS)[number]): number {
       }
     }
 
-    // Quelques ventes ponctuelles (licences, prestations) sur 12 mois.
+    // A few one-off sales (licences, services) over 12 months.
     const oneOffs = Math.round(between(10, 40));
     for (let i = 0; i < oneOffs; i++) {
       const at = new Date(now.getTime() - Math.floor(between(0, 365)) * 86_400_000);
@@ -349,7 +350,7 @@ function seedProject(project: (typeof DEMO_PROJECTS)[number]): number {
           subscription_id: null,
           payment_intent: null,
           billing_reason: null,
-          description: 'Licence perpétuelle',
+          description: 'Perpetual licence',
           occurred_at: sec(at),
         },
         { publish: false },
@@ -362,7 +363,7 @@ function seedProject(project: (typeof DEMO_PROJECTS)[number]): number {
   return events;
 }
 
-// ---- Exécution
+// ---- Run
 
 if (process.argv.includes('--reset')) reset();
 

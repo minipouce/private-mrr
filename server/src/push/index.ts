@@ -15,12 +15,12 @@ function money(cents: number): string {
 }
 
 /**
- * Enregistre un jeton FCM d'appareil.
+ * Registers a device's FCM token.
  *
- * Les jetons FCM n'ont pas de format documenté et stable ; on se contente donc
- * d'un contrôle de plausibilité plutôt que d'une expression régulière stricte
- * qui rejetterait de vrais jetons au premier changement de format côté Google.
- * Un jeton invalide sera de toute façon purgé au premier envoi.
+ * FCM tokens have no documented, stable format, so this is a plausibility check
+ * rather than a strict pattern that would reject genuine tokens the first time
+ * Google changes their shape. An invalid token is purged on the first send
+ * anyway.
  */
 export function registerToken(token: string, deviceName?: string): void {
   const trimmed = token.trim();
@@ -67,7 +67,7 @@ function prefsFor(projectId: string): Prefs {
   );
 }
 
-/** Décide si un événement mérite une notification, selon les préférences du projet. */
+/** Decides whether an event deserves a notification, per project preferences. */
 function shouldNotify(event: EventRow, prefs: Prefs): boolean {
   switch (event.kind) {
     case 'payment':
@@ -90,24 +90,24 @@ function shouldNotify(event: EventRow, prefs: Prefs): boolean {
 }
 
 /**
- * Nature d'un encaissement, telle que Stripe la qualifie.
+ * The nature of a payment, as Stripe qualifies it.
  *
- * Le montant seul ne dit pas s'il s'agit d'une première souscription ou d'un
- * renouvellement — or c'est l'information la plus utile d'un coup d'œil.
+ * The amount alone does not say whether this is a first subscription or a
+ * renewal, which is the most useful thing to know at a glance.
  */
 function paymentNature(event: EventRow): string {
   switch (event.billing_reason) {
     case 'subscription_create':
-      return 'Nouvel abonnement';
+      return 'New subscription';
     case 'subscription_cycle':
-      return 'Renouvellement';
+      return 'Renewal';
     case 'subscription_update':
-      return 'Changement de formule';
+      return 'Plan change';
     case 'subscription_threshold':
-      return 'Palier de consommation';
+      return 'Usage threshold';
     default:
-      // Sans motif exploitable, la présence d'un abonnement reste un indice sûr.
-      return event.subscription_id ? 'Abonnement' : 'Paiement ponctuel';
+      // With no usable reason, the presence of a subscription is a safe signal.
+      return event.subscription_id ? 'Subscription' : 'One-off payment';
   }
 }
 
@@ -115,7 +115,7 @@ function compose(
   event: EventRow,
   projectName: string,
 ): { title: string; body: string } | null {
-  const who = event.customer_name ?? event.customer_email ?? 'un client';
+  const who = event.customer_name ?? event.customer_email ?? 'a customer';
 
   switch (event.kind) {
     case 'payment': {
@@ -133,35 +133,35 @@ function compose(
     }
     case 'subscription_created':
       return {
-        title: `🎉 Nouvel abonné — ${projectName}`,
-        body: `${who} · +${money(event.mrr_delta_cents)}/mois de MRR`,
+        title: `🎉 New subscriber — ${projectName}`,
+        body: `${who} · +${money(event.mrr_delta_cents)}/mo MRR`,
       };
     case 'trial_started':
       return {
-        title: `🌱 Essai démarré — ${projectName}`,
-        body: `${who} vient de commencer un essai`,
+        title: `🌱 Trial started — ${projectName}`,
+        body: `${who} just started a trial`,
       };
     case 'subscription_updated': {
       if (event.mrr_delta_cents === 0) return null;
       const up = event.mrr_delta_cents > 0;
       return {
         title: `${up ? '📈 Upgrade' : '📉 Downgrade'} — ${projectName}`,
-        body: `${who} · ${up ? '+' : ''}${money(event.mrr_delta_cents)}/mois`,
+        body: `${who} · ${up ? '+' : ''}${money(event.mrr_delta_cents)}/mo`,
       };
     }
     case 'subscription_canceled':
       return {
-        title: `❌ Annulation — ${projectName}`,
-        body: `${who} · ${money(event.mrr_delta_cents)}/mois de MRR perdu`,
+        title: `❌ Cancellation — ${projectName}`,
+        body: `${who} · ${money(event.mrr_delta_cents)}/mo MRR lost`,
       };
     case 'payment_failed':
       return {
-        title: `⚠️ Paiement échoué — ${projectName}`,
+        title: `⚠️ Payment failed — ${projectName}`,
         body: `${who} · ${money(event.amount_base_cents)}`,
       };
     case 'refund':
       return {
-        title: `↩️ Remboursement — ${projectName}`,
+        title: `↩️ Refund — ${projectName}`,
         body: `${who} · ${money(Math.abs(event.amount_base_cents))}`,
       };
     default:
@@ -169,7 +169,7 @@ function compose(
   }
 }
 
-/** Diffuse un message à tous les appareils, en purgeant les jetons morts. */
+/** Broadcasts a message to every device, purging dead tokens. */
 async function broadcast(build: (token: string) => FcmMessage): Promise<number> {
   const tokens = activeTokens();
   if (tokens.length === 0) return 0;
@@ -193,22 +193,22 @@ async function broadcast(build: (token: string) => FcmMessage): Promise<number> 
 }
 
 /**
- * Envoie la notification correspondant à un événement.
- * Les erreurs sont absorbées : une panne de push ne doit jamais faire échouer
- * l'ingestion d'un webhook, sinon Stripe le rejouerait indéfiniment.
+ * Sends the notification matching an event.
+ * Errors are swallowed: a push outage must never fail webhook ingestion, or
+ * Stripe would redeliver it indefinitely.
  */
-/** Identité visuelle du projet dans la notification. */
+/** The project's visual identity inside the notification. */
 function projectVisuals(projectId: string): { color?: string; imageUrl?: string } {
   const row = db
     .prepare('SELECT color FROM projects WHERE id = ?')
     .get(projectId) as { color: string } | undefined;
 
   return {
-    // Android teinte l'icône de notification avec cette couleur : c'est le
-    // moyen natif de distinguer les projets d'un coup d'œil.
+    // Android tints the notification icon with this colour: the native way to
+    // tell projects apart at a glance.
     color: row?.color,
-    // L'image n'est jointe que si le serveur est joignable publiquement :
-    // Firebase la télécharge lui-même, une URL locale échouerait en silence.
+    // The image is only attached when the server is publicly reachable: Firebase
+    // downloads it itself, and a local URL would fail silently.
     imageUrl:
       config.publicUrl && hasLogo(projectId)
         ? `${config.publicUrl}/logos/${projectId}`
@@ -228,9 +228,9 @@ export async function notifyEvent(event: EventRow, projectName: string): Promise
 
     const visuals = projectVisuals(event.project_id);
 
-    // Un encaissement passe par un canal dédié, porteur du son de caisse.
-    // Le son d'un canal Android est figé à sa création : il faut un canal
-    // distinct plutôt qu'un simple paramètre par message.
+    // Payments go through a dedicated channel carrying the cash-register sound.
+    // An Android channel's sound is frozen at creation, so this needs a separate
+    // channel rather than a per-message parameter.
     const channelId = event.kind === 'payment' ? 'payments' : 'revenue';
 
     await broadcast((token) => ({
@@ -241,7 +241,7 @@ export async function notifyEvent(event: EventRow, projectName: string): Promise
       sound: channelId === 'payments' ? 'cash.mp3' : 'default',
       color: visuals.color,
       imageUrl: visuals.imageUrl,
-      // Permet à l'app d'ouvrir directement le bon projet au tap.
+      // Lets the app open the right project when tapped.
       data: {
         projectId: event.project_id,
         eventId: event.id,
@@ -254,14 +254,14 @@ export async function notifyEvent(event: EventRow, projectName: string): Promise
   }
 }
 
-/** Notification de test, déclenchée depuis l'app pour valider la chaîne. */
+/** Test notification, triggered from the app to validate the chain. */
 export async function sendTestNotification(): Promise<number> {
   if (!isConfigured()) throw new Error('FCM not configured on the server');
 
   return broadcast((token) => ({
     token,
-    title: '✅ Notifications actives',
-    body: 'Ton téléphone est bien relié au serveur MRR.',
+    title: '✅ Notifications active',
+    body: 'Your phone is connected to the MRR server.',
     data: { kind: 'test' },
   }));
 }

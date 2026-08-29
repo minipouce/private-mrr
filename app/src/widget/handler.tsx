@@ -4,11 +4,11 @@ import { MrrWidget } from './MrrWidget';
 import { loadWidgetData } from './data';
 
 /**
- * Gestionnaire de tâche du widget.
+ * Widget task handler.
  *
- * Exécuté hors de l'application, dans un contexte JavaScript sans interface :
- * ni état React partagé, ni navigation. Il relit donc la configuration et
- * interroge l'API lui-même à chaque réveil.
+ * Runs outside the application, in a headless JavaScript context: no shared
+ * React state, no navigation. It therefore re-reads the configuration and
+ * queries the API itself on every wake-up.
  */
 const NAME = 'Mrr';
 
