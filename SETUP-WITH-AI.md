@@ -1,8 +1,8 @@
 # Setting up Private MRR with an AI assistant
 
 **You do not need to be a developer to run this.** This document is written to
-be handed to an AI assistant — Claude, ChatGPT, or an agent like Claude Code —
-which will then walk you through the whole setup.
+be handed to an AI assistant: Claude, ChatGPT, or an agent like Claude Code.
+It will then walk you through the whole setup.
 
 ## How to use it
 
@@ -27,8 +27,8 @@ to an Android phone. Repository: `https://github.com/minipouce/private-mrr`
 - **Never ask for, display, or store a Stripe secret key in the conversation.**
   Keys go straight into a file the user edits. A key pasted into a chat should
   be treated as compromised and rotated.
-- **Never create accounts or log in on the user's behalf** — Stripe, Firebase,
-  Google, GitHub. Authentication is theirs.
+- **Never create accounts or log in on the user's behalf** (Stripe, Firebase,
+  Google, GitHub). Authentication is theirs.
 - **Never accept terms of service for them.**
 - **Never delete anything** without explicit, specific confirmation.
 
@@ -37,7 +37,7 @@ to an Android phone. Repository: `https://github.com/minipouce/private-mrr`
 - **`stripe login` and `eas credentials` are interactive.** They cannot be
   scripted. The user runs them.
 - **Firebase project creation requires a Google session.** The user does it.
-- **Webhook endpoints are created by hand** in each Stripe dashboard — this is
+- **Webhook endpoints are created by hand** in each Stripe dashboard. This is
   the longest part of the setup, roughly two minutes per account.
 - **Stripe caps expansion at four levels**, and moved several fields in recent
   API versions. If you modify the ingestion code, verify against real data.
@@ -54,7 +54,7 @@ Ask, one at a time:
 
 - A server (VPS) with SSH access? Which OS?
 - Docker installed there? (`docker --version`)
-- A reverse proxy already running? (nginx, Caddy, Traefik — check with
+- A reverse proxy already running? (nginx, Caddy, Traefik; check with
   `systemctl is-active nginx caddy`)
 - A domain name pointing at that server?
 - How many Stripe accounts?
@@ -71,7 +71,7 @@ reconfigure an existing service without asking.
 This is the security-critical step. Explain why before asking them to act.
 
 A Stripe **secret** key (`sk_live_…`) can issue refunds and move money. This
-project only ever reads. So the user creates a **restricted** key instead.
+project only ever reads, so the user creates a **restricted** key instead.
 
 For each Stripe account, tell them:
 
@@ -79,7 +79,7 @@ For each Stripe account, tell them:
 > Name it `private-mrr`. Set these four to **Read**, everything else to *None*:
 > **Charges, Customers, Invoices, Subscriptions**.
 > Add **Account** read too if you want project logos pulled automatically.
-> The key is shown once — keep the tab open.
+> The key is shown once, so keep the tab open.
 
 Then, for each project:
 
@@ -93,7 +93,7 @@ The short id appears in webhook URLs, so keep it lowercase with hyphens:
 
 Then tell them to open `server/.env` in a text editor and paste each
 `rk_live_…` into its `_STRIPE_KEY` line. **Do not ask them to paste keys to
-you.** Leave `_WEBHOOK_SECRET` empty — that comes later.
+you.** Leave `_WEBHOOK_SECRET` empty; that comes later.
 
 Verify without ever seeing the keys:
 
@@ -122,7 +122,7 @@ figures the user does not trust.
 
 ## Step 4 · Firebase, for notifications
 
-Everything works without this — only push notifications are unavailable, and
+Everything works without this: only push notifications are unavailable, and
 the server says so at startup. Offer to skip and come back later.
 
 Guide them through, without doing it yourself:
@@ -130,12 +130,12 @@ Guide them through, without doing it yourself:
 1. [console.firebase.google.com](https://console.firebase.google.com) → create
    a project (Analytics can be disabled)
 2. *Add app → Android*. The package name must match `android.package` in
-   `app/app.json` exactly — a mismatch produces an app that builds, installs,
+   `app/app.json` exactly. A mismatch produces an app that builds, installs,
    and never delivers a notification
 3. Download `google-services.json` into `app/`
 4. *Project settings → Service accounts → Generate new private key*
 5. Save it as `server/credentials/fcm-service-account.json`, then `chmod 600`
-6. **Tell them to delete their downloaded copy** — it is a Firebase admin
+6. **Tell them to delete their downloaded copy**: it is a Firebase admin
    credential
 
 Verify:
@@ -175,7 +175,7 @@ ssh user@server 'cd /opt/private-mrr && docker compose up -d --build'
 ```
 
 Configure the reverse proxy to forward to `127.0.0.1:8791`. **The `/api/stream`
-route must not be buffered** — see the README for nginx and Caddy examples.
+route must not be buffered.** See the README for nginx and Caddy examples.
 Without that, real-time events arrive in batches.
 
 Validate before moving on:
@@ -185,7 +185,7 @@ curl -s https://their-domain/health          # {"ok":true}
 curl -so /dev/null -w '%{http_code}' https://their-domain/api/overview   # 401
 ```
 
-A `401` without a token is the correct answer — it means authentication works.
+A `401` without a token is the correct answer: it means authentication works.
 
 ---
 
@@ -202,7 +202,7 @@ The longest step. For **each** Stripe account:
 Each endpoint yields a `whsec_…`. It goes into the matching
 `PROJECT_<ID>_WEBHOOK_SECRET` in the server's `.env`.
 
-Then — and this catches people out:
+Then, and this catches people out:
 
 ```bash
 docker compose up -d --force-recreate
@@ -243,13 +243,13 @@ curl -s -X POST -H "Authorization: Bearer <token>" https://their-domain/api/push
 
 | Symptom | Most likely cause |
 |---|---|
-| Webhooks answer `500` | Secrets added but container only `restart`ed — use `up -d --force-recreate` |
+| Webhooks answer `500` | Secrets added but container only `restart`ed. Use `up -d --force-recreate` |
 | Webhooks answer `400` | Wrong `whsec_`, or a proxy altering the request body |
 | Real-time events arrive in bursts | Reverse proxy buffering `/api/stream` |
 | A project shows nothing | Its id is missing from `PROJECTS`, or the variable name does not match the id |
-| Revenue looks doubled | Ingestion modified — invoices and charges must be deduplicated by payment intent |
+| Revenue looks doubled | Ingestion modified; invoices and charges must be deduplicated by payment intent |
 | Notifications never arrive | Package name mismatch between Firebase and `app.json`, or no Google Play Services on the device |
-| Colour missing on a project | `COLOR` not quoted in `.env` — `dotenv` reads `#` as a comment |
+| Colour missing on a project | `COLOR` not quoted in `.env`, so `dotenv` reads `#` as a comment |
 
 ---
 
@@ -262,4 +262,4 @@ they confirm.
 
 ---
 
-*Private MRR — built by [Tristan Berguer](https://x.com/TBerguer). MIT licensed.*
+*Private MRR, built by [Tristan Berguer](https://x.com/TBerguer). MIT licensed.*

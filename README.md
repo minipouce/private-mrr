@@ -364,6 +364,22 @@ Pull requests welcome if that trade-off works for you.
 - Container runs unprivileged with a read-only filesystem
 - Logs redact `Authorization` and `stripe-signature`
 
+## Stuck? Or want this without the server?
+
+**If you get stuck deploying**, reach out. Open an
+[issue](https://github.com/minipouce/private-mrr/issues) if it looks like a bug,
+or message me directly if you would rather not debug in public:
+
+- [X · @TBerguer](https://x.com/TBerguer)
+- [LinkedIn · Tristan Berguer](https://www.linkedin.com/in/tristanberguer/)
+
+**And if you want this but have no interest in running a server**, tell me. A
+hosted version is not built, and I will only build it if enough people ask.
+Saying so costs you a message and tells me whether it is worth doing.
+
+Mention how many Stripe accounts you track and what you would expect to pay.
+That is the part I cannot guess.
+
 ## Built by
 
 **Tristan Berguer**
