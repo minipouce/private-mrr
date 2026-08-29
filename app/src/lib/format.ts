@@ -34,6 +34,26 @@ function symbolFor(currency: string): string {
   return SYMBOLS[key] ?? key;
 }
 
+/**
+ * Whether the currency symbol leads the number in the active language.
+ *
+ * Asked of `Intl` rather than hard-coded, by formatting a probe and looking at
+ * what comes first. English writes "€99.9k" and French "99,9 k€"; deciding this
+ * by testing for French would need editing every time a language is added.
+ */
+function symbolLeads(currency: string): boolean {
+  const probe = fullFormatter(currency).format(1).trim();
+  return !/^[\d\u2212+-]/.test(probe);
+}
+
+/** Assembles an abbreviated amount, placing the symbol as the language wants. */
+function assemble(sign: string, digits: string, scale: string, currency: string): string {
+  const symbol = symbolFor(currency);
+  return symbolLeads(currency)
+    ? `${sign}${symbol}${digits}${scale}`
+    : `${sign}${digits}\u202f${scale}${symbol}`;
+}
+
 /** Full amount: "€110,251". */
 export function money(cents: number, currency = 'eur'): string {
   return fullFormatter(currency).format(cents / 100);
@@ -50,7 +70,6 @@ export function moneyCompact(cents: number, currency = 'eur'): string {
   const units = cents / 100;
   const abs = Math.abs(units);
   const sign = units < 0 ? '\u2212' : '';
-  const symbol = symbolFor(currency);
 
   // Below 10,000, abbreviating loses more information than it saves in space:
   // "€3,669" reads better than "€3.7k".
@@ -65,10 +84,10 @@ export function moneyCompact(cents: number, currency = 'eur'): string {
     }).format(value);
 
   if (abs < 1_000_000) {
-    return `${sign}${decimals(abs / 1000, 1)}\u202fk${symbol}`;
+    return assemble(sign, decimals(abs / 1000, 1), 'k', currency);
   }
 
-  return `${sign}${decimals(abs / 1_000_000, 2)}\u202fM${symbol}`;
+  return assemble(sign, decimals(abs / 1_000_000, 2), 'M', currency);
 }
 
 /** Amount with cents, for individual event rows. */
@@ -86,13 +105,19 @@ export function signed(cents: number, currency = 'eur'): string {
   return `${sign}${money(Math.abs(cents), currency)}`;
 }
 
+/**
+ * Percentage, spaced as the language wants: "3.5%" in English, "3,5 %" in
+ * French. `style: 'percent'` carries that rule, so the value is divided by 100
+ * to feed it a ratio rather than appending the sign by hand.
+ */
 export function percent(value: number | null): string {
   if (value === null || !Number.isFinite(value)) return '—';
   const sign = value > 0 ? '+' : value < 0 ? '−' : '';
   return `${sign}${new Intl.NumberFormat(intlLocale(), {
+    style: 'percent',
     minimumFractionDigits: 1,
     maximumFractionDigits: 1,
-  }).format(Math.abs(value))} %`;
+  }).format(Math.abs(value) / 100)}`;
 }
 
 /** Compact elapsed time: "just now", "12 min", "3 h", "5 d". */

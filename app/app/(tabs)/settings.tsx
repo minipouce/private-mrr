@@ -170,8 +170,14 @@ export default function Settings() {
       <SectionTitle>{t('language')}</SectionTitle>
       <Card>
         {/* Re-registering hands the server the new language, so the next
-            notification arrives worded accordingly. */}
-        <LanguagePicker onChange={() => { void push.register(); }} />
+            notification arrives worded accordingly. Only when notifications are
+            already on: otherwise changing the language would provoke a
+            permission prompt nobody asked for. */}
+        <LanguagePicker
+          onChange={() => {
+            if (push.status === 'granted') void push.register();
+          }}
+        />
       </Card>
 
       <SectionTitle>{t('notifications')}</SectionTitle>
