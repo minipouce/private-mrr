@@ -112,10 +112,10 @@ export const api = {
       body: JSON.stringify(body),
     }),
 
-  registerPush: (token: string, deviceName?: string) =>
+  registerPush: (token: string, deviceName?: string, locale?: string) =>
     request<{ ok: boolean }>('/api/push/register', {
       method: 'POST',
-      body: JSON.stringify({ token, deviceName }),
+      body: JSON.stringify({ token, deviceName, locale }),
     }),
 
   testPush: () => request<{ sent: number }>('/api/push/test', { method: 'POST' }),

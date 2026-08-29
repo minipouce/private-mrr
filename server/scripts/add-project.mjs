@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Ajoute un projet au fichier .env, avec un nommage de variables correct.
+ * Adds a project to the .env file, with correctly named variables.
  *
  *   node scripts/add-project.mjs <id> "<Display name>" [colour]
  *

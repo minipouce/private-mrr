@@ -189,13 +189,13 @@ export function registerApi(app: FastifyInstance): void {
 
   // ---- Notifications
 
-  app.post<{ Body: { token?: string; deviceName?: string } }>(
+  app.post<{ Body: { token?: string; deviceName?: string; locale?: string } }>(
     '/api/push/register',
     async (request, reply) => {
       const token = request.body?.token;
       if (!token) return reply.code(400).send({ error: 'missing token' });
       try {
-        registerToken(token, request.body?.deviceName);
+        registerToken(token, request.body?.deviceName, request.body?.locale);
         return { ok: true };
       } catch (err) {
         return reply.code(400).send({ error: (err as Error).message });

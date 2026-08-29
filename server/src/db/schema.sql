@@ -90,6 +90,9 @@ CREATE INDEX IF NOT EXISTS idx_subs_project ON subscriptions (project_id, status
 CREATE TABLE IF NOT EXISTS push_tokens (
   token        TEXT PRIMARY KEY,
   device_name  TEXT,
+  -- Language the device asked for, so one server can notify a French phone and
+  -- an English one differently. 'en' when the device never said.
+  locale       TEXT NOT NULL DEFAULT 'en',
   created_at   INTEGER NOT NULL,
   last_seen_at INTEGER NOT NULL
 );

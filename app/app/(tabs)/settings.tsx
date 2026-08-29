@@ -10,6 +10,7 @@ import { api } from '../../src/api/client';
 import { clearConfig, loadConfig } from '../../src/api/config';
 import { colors, radius, space, type } from '../../src/theme/index';
 import { Card, SectionTitle, Divider } from '../../src/components/ui';
+import { LanguagePicker } from '../../src/components/LanguagePicker';
 import { money, timeAgo } from '../../src/lib/format';
 import { ProjectLogo } from '../../src/components/ProjectLogo';
 import { GoalEditor } from '../../src/components/GoalEditor';
@@ -164,6 +165,13 @@ export default function Settings() {
             <Row label={t('lastComputed')} value={timeAgo(overview.generatedAt)} />
           </>
         )}
+      </Card>
+
+      <SectionTitle>{t('language')}</SectionTitle>
+      <Card>
+        {/* Re-registering hands the server the new language, so the next
+            notification arrives worded accordingly. */}
+        <LanguagePicker onChange={() => { void push.register(); }} />
       </Card>
 
       <SectionTitle>{t('notifications')}</SectionTitle>

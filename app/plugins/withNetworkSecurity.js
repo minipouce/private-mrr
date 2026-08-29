@@ -57,7 +57,7 @@ module.exports = function withNetworkSecurity(config) {
     );
   }
 
-  // 1. Écrit la ressource XML dans le projet natif.
+  // 1. Write the XML resource into the native project.
   config = withDangerousMod(config, [
     'android',
     async (cfg) => {

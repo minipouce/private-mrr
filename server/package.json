@@ -15,7 +15,8 @@
     "add-project": "node scripts/add-project.mjs",
     "sync-logos": "tsx src/cli/sync-logos.ts",
     "replay": "tsx src/cli/replay-webhook.ts",
-    "check-keys": "tsx src/cli/check-keys.ts"
+    "check-keys": "tsx src/cli/check-keys.ts",
+    "check-i18n": "tsx src/cli/check-i18n.ts"
   },
   "dependencies": {
     "@fastify/cors": "^11.0.1",

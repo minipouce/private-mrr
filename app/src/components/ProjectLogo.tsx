@@ -4,7 +4,7 @@ import { peekConfig } from '../api/config';
 import { colors, radius } from '../theme';
 
 /**
- * Logo d'un projet, avec repli sur une pastille de couleur.
+ * A project's logo, falling back to a coloured badge.
  *
  * The logo endpoint is public, because Firebase must be able to load the same
  * image for notifications, so no authentication header is needed here. If

@@ -14,8 +14,8 @@ const GOOGLE_SERVICES = 'google-services.json';
 /**
  * Application identity, overridable through the environment.
  *
- * Une personne qui reprend ce projet a besoin de son propre nom de paquet, de
- * son propre projet Firebase et de son propre compte Expo. Les valeurs de
+ * Anyone picking up this project needs their own package name, along with
+ * their own Firebase project and their own Expo account. The values in
  * `app.json` remain the author's; these variables replace them without
  * modifying the repository.
  */

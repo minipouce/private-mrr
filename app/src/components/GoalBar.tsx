@@ -6,7 +6,7 @@ import type { GoalProgress } from '../api/types';
 import { t } from '../i18n';
 
 /**
- * Avancement vers un objectif de revenu.
+ * Progress towards a revenue goal.
  *
  * The bar is capped at 100% to stay readable, but the real percentage is shown
  * as is: beating your goal deserves to be seen.

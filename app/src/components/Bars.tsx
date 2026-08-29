@@ -10,7 +10,7 @@ interface Props {
   currency?: string;
 }
 
-/** Histogramme mensuel. Le mois courant est mis en avant, les autres en retrait. */
+/** Monthly histogram. The current month is highlighted, the others recede. */
 export function Bars({ data, color = colors.accent, currency = 'eur' }: Props) {
   if (data.length === 0) return null;
   const max = Math.max(...data.map((d) => d.cents), 1);

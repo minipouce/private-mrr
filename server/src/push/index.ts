@@ -4,15 +4,89 @@ import { sendToDevice, isConfigured, type FcmMessage } from './fcm.js';
 import { hasLogo } from '../stripe/branding.js';
 import type { EventRow } from '../db/repo.js';
 
-const CURRENCY_FMT = new Intl.NumberFormat('fr-FR', {
-  style: 'currency',
-  currency: config.baseCurrency.toUpperCase(),
-  maximumFractionDigits: 0,
-});
+/**
+ * Notification language.
+ *
+ * Devices announce their language when they register, so one server can push to
+ * a French phone and an English one at the same time. An unknown or missing
+ * language falls back to English.
+ */
+export type Locale = 'en' | 'fr';
 
-function money(cents: number): string {
-  return CURRENCY_FMT.format(cents / 100);
+export function normalizeLocale(value: unknown): Locale {
+  return String(value ?? '').trim().toLowerCase().startsWith('fr') ? 'fr' : 'en';
 }
+
+const INTL_TAG: Record<Locale, string> = { en: 'en-US', fr: 'fr-FR' };
+
+const CURRENCY_FMT = new Map<Locale, Intl.NumberFormat>();
+
+function money(cents: number, locale: Locale): string {
+  let fmt = CURRENCY_FMT.get(locale);
+  if (!fmt) {
+    fmt = new Intl.NumberFormat(INTL_TAG[locale], {
+      style: 'currency',
+      currency: config.baseCurrency.toUpperCase(),
+      maximumFractionDigits: 0,
+    });
+    CURRENCY_FMT.set(locale, fmt);
+  }
+  return fmt.format(cents / 100);
+}
+
+/**
+ * Notification copy, by language.
+ *
+ * Kept as a plain table rather than reusing the app's translation file: the
+ * server has no bundler, and these few dozen strings do not justify sharing a
+ * module across two build systems.
+ */
+const COPY = {
+  en: {
+    someone: 'a customer',
+    natureCreate: 'New subscription',
+    natureCycle: 'Renewal',
+    natureUpdate: 'Plan change',
+    natureThreshold: 'Usage threshold',
+    natureSubscription: 'Subscription',
+    natureOneOff: 'One-off payment',
+    newSubscriber: 'New subscriber',
+    perMonth: '/mo MRR',
+    trialStarted: 'Trial started',
+    trialBody: 'just started a trial',
+    upgrade: 'Upgrade',
+    downgrade: 'Downgrade',
+    perMonthShort: '/mo',
+    cancellation: 'Cancellation',
+    mrrLost: '/mo MRR lost',
+    paymentFailed: 'Payment failed',
+    refund: 'Refund',
+    testTitle: '✅ Notifications active',
+    testBody: 'Your phone is connected to the MRR server.',
+  },
+  fr: {
+    someone: 'un client',
+    natureCreate: 'Nouvel abonnement',
+    natureCycle: 'Renouvellement',
+    natureUpdate: 'Changement de formule',
+    natureThreshold: 'Palier de consommation',
+    natureSubscription: 'Abonnement',
+    natureOneOff: 'Paiement ponctuel',
+    newSubscriber: 'Nouvel abonné',
+    perMonth: '/mois de MRR',
+    trialStarted: 'Essai démarré',
+    trialBody: 'vient de commencer un essai',
+    upgrade: 'Upgrade',
+    downgrade: 'Downgrade',
+    perMonthShort: '/mois',
+    cancellation: 'Annulation',
+    mrrLost: '/mois de MRR perdu',
+    paymentFailed: 'Paiement échoué',
+    refund: 'Remboursement',
+    testTitle: '✅ Notifications actives',
+    testBody: 'Ton téléphone est connecté au serveur MRR.',
+  },
+} satisfies Record<Locale, Record<string, string>>;
 
 /**
  * Registers a device's FCM token.
@@ -22,7 +96,7 @@ function money(cents: number): string {
  * Google changes their shape. An invalid token is purged on the first send
  * anyway.
  */
-export function registerToken(token: string, deviceName?: string): void {
+export function registerToken(token: string, deviceName?: string, locale?: string): void {
   const trimmed = token.trim();
   if (trimmed.length < 32 || trimmed.length > 4096 || /\s/.test(trimmed)) {
     throw new Error('Invalid device token');
@@ -30,19 +104,30 @@ export function registerToken(token: string, deviceName?: string): void {
 
   const now = Math.floor(Date.now() / 1000);
   db.prepare(
-    `INSERT INTO push_tokens (token, device_name, created_at, last_seen_at)
-     VALUES (?, ?, ?, ?)
-     ON CONFLICT(token) DO UPDATE SET device_name = excluded.device_name, last_seen_at = excluded.last_seen_at`,
-  ).run(trimmed, deviceName ?? null, now, now);
+    `INSERT INTO push_tokens (token, device_name, locale, created_at, last_seen_at)
+     VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(token) DO UPDATE SET
+       device_name = excluded.device_name,
+       locale      = excluded.locale,
+       last_seen_at = excluded.last_seen_at`,
+  ).run(trimmed, deviceName ?? null, normalizeLocale(locale), now, now);
 }
 
 export function removeToken(token: string): void {
   db.prepare('DELETE FROM push_tokens WHERE token = ?').run(token);
 }
 
-function activeTokens(): string[] {
-  const rows = db.prepare('SELECT token FROM push_tokens').all() as { token: string }[];
-  return rows.map((r) => r.token);
+interface Device {
+  token: string;
+  locale: Locale;
+}
+
+function activeDevices(): Device[] {
+  const rows = db.prepare('SELECT token, locale FROM push_tokens').all() as {
+    token: string;
+    locale: string | null;
+  }[];
+  return rows.map((r) => ({ token: r.token, locale: normalizeLocale(r.locale) }));
 }
 
 interface Prefs {
@@ -95,31 +180,35 @@ function shouldNotify(event: EventRow, prefs: Prefs): boolean {
  * The amount alone does not say whether this is a first subscription or a
  * renewal, which is the most useful thing to know at a glance.
  */
-function paymentNature(event: EventRow): string {
+function paymentNature(event: EventRow, locale: Locale): string {
+  const c = COPY[locale];
   switch (event.billing_reason) {
     case 'subscription_create':
-      return 'New subscription';
+      return c.natureCreate;
     case 'subscription_cycle':
-      return 'Renewal';
+      return c.natureCycle;
     case 'subscription_update':
-      return 'Plan change';
+      return c.natureUpdate;
     case 'subscription_threshold':
-      return 'Usage threshold';
+      return c.natureThreshold;
     default:
       // With no usable reason, the presence of a subscription is a safe signal.
-      return event.subscription_id ? 'Subscription' : 'One-off payment';
+      return event.subscription_id ? c.natureSubscription : c.natureOneOff;
   }
 }
 
-function compose(
+export function compose(
   event: EventRow,
   projectName: string,
+  locale: Locale,
 ): { title: string; body: string } | null {
-  const who = event.customer_name ?? event.customer_email ?? 'a customer';
+  const c = COPY[locale];
+  const who = event.customer_name ?? event.customer_email ?? c.someone;
+  const money_ = (cents: number) => money(cents, locale);
 
   switch (event.kind) {
     case 'payment': {
-      const nature = paymentNature(event);
+      const nature = paymentNature(event, locale);
       const glyph =
         event.billing_reason === 'subscription_create'
           ? '🎉'
@@ -127,59 +216,67 @@ function compose(
             ? '🔁'
             : '💰';
       return {
-        title: `${glyph} ${money(event.amount_base_cents)} — ${projectName}`,
+        title: `${glyph} ${money_(event.amount_base_cents)} — ${projectName}`,
         body: `${nature} · ${who}${event.description ? ` · ${event.description}` : ''}`,
       };
     }
     case 'subscription_created':
       return {
-        title: `🎉 New subscriber — ${projectName}`,
-        body: `${who} · +${money(event.mrr_delta_cents)}/mo MRR`,
+        title: `🎉 ${c.newSubscriber} — ${projectName}`,
+        body: `${who} · +${money_(event.mrr_delta_cents)}${c.perMonth}`,
       };
     case 'trial_started':
       return {
-        title: `🌱 Trial started — ${projectName}`,
-        body: `${who} just started a trial`,
+        title: `🌱 ${c.trialStarted} — ${projectName}`,
+        body: `${who} ${c.trialBody}`,
       };
     case 'subscription_updated': {
       if (event.mrr_delta_cents === 0) return null;
       const up = event.mrr_delta_cents > 0;
       return {
-        title: `${up ? '📈 Upgrade' : '📉 Downgrade'} — ${projectName}`,
-        body: `${who} · ${up ? '+' : ''}${money(event.mrr_delta_cents)}/mo`,
+        title: `${up ? `📈 ${c.upgrade}` : `📉 ${c.downgrade}`} — ${projectName}`,
+        body: `${who} · ${up ? '+' : ''}${money_(event.mrr_delta_cents)}${c.perMonthShort}`,
       };
     }
     case 'subscription_canceled':
       return {
-        title: `❌ Cancellation — ${projectName}`,
-        body: `${who} · ${money(event.mrr_delta_cents)}/mo MRR lost`,
+        title: `❌ ${c.cancellation} — ${projectName}`,
+        body: `${who} · ${money_(event.mrr_delta_cents)}${c.mrrLost}`,
       };
     case 'payment_failed':
       return {
-        title: `⚠️ Payment failed — ${projectName}`,
-        body: `${who} · ${money(event.amount_base_cents)}`,
+        title: `⚠️ ${c.paymentFailed} — ${projectName}`,
+        body: `${who} · ${money_(event.amount_base_cents)}`,
       };
     case 'refund':
       return {
-        title: `↩️ Refund — ${projectName}`,
-        body: `${who} · ${money(Math.abs(event.amount_base_cents))}`,
+        title: `↩️ ${c.refund} — ${projectName}`,
+        body: `${who} · ${money_(Math.abs(event.amount_base_cents))}`,
       };
     default:
       return null;
   }
 }
 
-/** Broadcasts a message to every device, purging dead tokens. */
-async function broadcast(build: (token: string) => FcmMessage): Promise<number> {
-  const tokens = activeTokens();
-  if (tokens.length === 0) return 0;
+/**
+ * Broadcasts a message to every device, purging dead tokens.
+ *
+ * `build` is called once per device with that device's language, so a French
+ * phone and an English one receive the same event worded differently.
+ */
+async function broadcast(build: (device: Device) => FcmMessage | null): Promise<number> {
+  const devices = activeDevices();
+  if (devices.length === 0) return 0;
 
   const outcomes = await Promise.all(
-    tokens.map(async (token) => {
-      const result = await sendToDevice(build(token));
+    devices.map(async (device) => {
+      const message = build(device);
+      if (!message) return false;
+
+      const result = await sendToDevice(message);
       if (!result.ok) {
         if (result.unregistered) {
-          removeToken(token);
+          removeToken(device.token);
           console.log('[push] token purged (device unregistered)');
         } else {
           console.warn(`[push] send failed: ${result.message}`);
@@ -223,9 +320,6 @@ export async function notifyEvent(event: EventRow, projectName: string): Promise
     const prefs = prefsFor(event.project_id);
     if (!shouldNotify(event, prefs)) return;
 
-    const content = compose(event, projectName);
-    if (!content) return;
-
     const visuals = projectVisuals(event.project_id);
 
     // Payments go through a dedicated channel carrying the cash-register sound.
@@ -233,22 +327,27 @@ export async function notifyEvent(event: EventRow, projectName: string): Promise
     // channel rather than a per-message parameter.
     const channelId = event.kind === 'payment' ? 'payments' : 'revenue';
 
-    await broadcast((token) => ({
-      token,
-      title: content.title,
-      body: content.body,
-      channelId,
-      sound: channelId === 'payments' ? 'cash.mp3' : 'default',
-      color: visuals.color,
-      imageUrl: visuals.imageUrl,
-      // Lets the app open the right project when tapped.
-      data: {
-        projectId: event.project_id,
-        eventId: event.id,
-        kind: event.kind,
-        amountBaseCents: event.amount_base_cents,
-      },
-    }));
+    await broadcast(({ token, locale }) => {
+      const content = compose(event, projectName, locale);
+      if (!content) return null;
+
+      return {
+        token,
+        title: content.title,
+        body: content.body,
+        channelId,
+        sound: channelId === 'payments' ? 'cash.mp3' : 'default',
+        color: visuals.color,
+        imageUrl: visuals.imageUrl,
+        // Lets the app open the right project when tapped.
+        data: {
+          projectId: event.project_id,
+          eventId: event.id,
+          kind: event.kind,
+          amountBaseCents: event.amount_base_cents,
+        },
+      };
+    });
   } catch (err) {
     console.error(`[push] send error: ${(err as Error).message}`);
   }
@@ -258,10 +357,10 @@ export async function notifyEvent(event: EventRow, projectName: string): Promise
 export async function sendTestNotification(): Promise<number> {
   if (!isConfigured()) throw new Error('FCM not configured on the server');
 
-  return broadcast((token) => ({
+  return broadcast(({ token, locale }) => ({
     token,
-    title: '✅ Notifications active',
-    body: 'Your phone is connected to the MRR server.',
+    title: COPY[locale].testTitle,
+    body: COPY[locale].testBody,
     data: { kind: 'test' },
   }));
 }

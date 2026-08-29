@@ -4,7 +4,7 @@ import { colors, radius, space, type } from '../theme';
 import { t } from '../i18n';
 
 /**
- * Saisie d'un objectif de revenu.
+ * Revenue goal input.
  *
  * The amount is typed in whole units, since a goal is set in euros rather than
  * cents, and converted on save. An empty or zero field removes the goal, which

@@ -1,7 +1,7 @@
 import * as SecureStore from 'expo-secure-store';
 
 /**
- * URL du serveur et jeton d'API.
+ * Server URL and API token.
  *
  * The token lives in SecureStore, encrypted by the Android keystore, and never
  * in AsyncStorage, which is readable in the clear on a rooted device.

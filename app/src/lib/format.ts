@@ -7,15 +7,17 @@
  */
 import { intlLocale, t } from '../i18n';
 
+// Keyed by language as well as currency: a cache keyed on currency alone would
+// keep serving the formatter built at startup after a language change.
 const FULL = new Map<string, Intl.NumberFormat>();
 
 function fullFormatter(currency: string): Intl.NumberFormat {
-  const key = currency.toUpperCase();
+  const key = `${intlLocale()}:${currency.toUpperCase()}`;
   let fmt = FULL.get(key);
   if (!fmt) {
-    fmt = new Intl.NumberFormat(intlLocale, {
+    fmt = new Intl.NumberFormat(intlLocale(), {
       style: 'currency',
-      currency: key,
+      currency: currency.toUpperCase(),
       maximumFractionDigits: 0,
     });
     FULL.set(key, fmt);
@@ -32,7 +34,7 @@ function symbolFor(currency: string): string {
   return SYMBOLS[key] ?? key;
 }
 
-/** Montant complet : « 110 251 € ». */
+/** Full amount: "€110,251". */
 export function money(cents: number, currency = 'eur'): string {
   return fullFormatter(currency).format(cents / 100);
 }
@@ -57,7 +59,7 @@ export function moneyCompact(cents: number, currency = 'eur'): string {
   // The decimal separator follows the language: a comma in French, a period in
   // English. Hard-coding it produced "131,7 k€" in an English interface.
   const decimals = (value: number, digits: number) =>
-    new Intl.NumberFormat(intlLocale, {
+    new Intl.NumberFormat(intlLocale(), {
       minimumFractionDigits: digits,
       maximumFractionDigits: digits,
     }).format(value);
@@ -71,7 +73,7 @@ export function moneyCompact(cents: number, currency = 'eur'): string {
 
 /** Amount with cents, for individual event rows. */
 export function moneyPrecise(cents: number, currency = 'eur'): string {
-  return new Intl.NumberFormat(intlLocale, {
+  return new Intl.NumberFormat(intlLocale(), {
     style: 'currency',
     currency: currency.toUpperCase(),
     minimumFractionDigits: 2,
@@ -87,7 +89,7 @@ export function signed(cents: number, currency = 'eur'): string {
 export function percent(value: number | null): string {
   if (value === null || !Number.isFinite(value)) return '—';
   const sign = value > 0 ? '+' : value < 0 ? '−' : '';
-  return `${sign}${new Intl.NumberFormat(intlLocale, {
+  return `${sign}${new Intl.NumberFormat(intlLocale(), {
     minimumFractionDigits: 1,
     maximumFractionDigits: 1,
   }).format(Math.abs(value))} %`;
@@ -102,7 +104,7 @@ export function timeAgo(unixSeconds: number): string {
   if (diff < 86_400) return `${Math.floor(diff / 3600)} ${t('hoursShort')}`;
   if (diff < 604_800) return `${Math.floor(diff / 86_400)} ${t('daysShort')}`;
 
-  return new Date(unixSeconds * 1000).toLocaleDateString(intlLocale, {
+  return new Date(unixSeconds * 1000).toLocaleDateString(intlLocale(), {
     day: 'numeric',
     month: 'short',
   });
@@ -110,7 +112,7 @@ export function timeAgo(unixSeconds: number): string {
 
 export function dayLabel(iso: string): string {
   const [y, m, d] = iso.split('-').map(Number);
-  return new Date(y!, m! - 1, d!).toLocaleDateString(intlLocale, {
+  return new Date(y!, m! - 1, d!).toLocaleDateString(intlLocale(), {
     day: 'numeric',
     month: 'short',
   });
@@ -119,7 +121,7 @@ export function dayLabel(iso: string): string {
 export function monthLabel(iso: string): string {
   const [y, m] = iso.split('-').map(Number);
   return new Date(y!, m! - 1, 1)
-    .toLocaleDateString(intlLocale, { month: 'short' })
+    .toLocaleDateString(intlLocale(), { month: 'short' })
     .replace('.', '');
 }
 

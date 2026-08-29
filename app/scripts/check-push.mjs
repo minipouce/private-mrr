@@ -6,7 +6,7 @@
  * notification will ever be sent. This script makes each link visible.
  *
  *   node scripts/check-push.mjs
- *   node scripts/check-push.mjs --server https://mrr.tondomaine.com --token <jeton>
+ *   node scripts/check-push.mjs --server https://mrr.yourdomain.com --token <token>
  */
 import { execSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
@@ -46,7 +46,7 @@ else bad('projectId missing', 'run: npx eas-cli init');
 if (androidPackage) ok('Android package', androidPackage);
 else bad('Android package missing');
 
-// --- 2. Fichier Firebase ---------------------------------------------------
+// --- 2. Firebase file -------------------------------------------------------
 console.log('\n\x1b[1m2. Firebase (google-services.json)\x1b[0m');
 
 const gsPath = resolve(process.cwd(), 'google-services.json');
@@ -111,7 +111,7 @@ if (existsSync(serverKeyPath)) {
   console.log('  \x1b[2mFCM_SERVICE_ACCOUNT_PATH on the server, and /health.\x1b[0m');
 }
 
-// --- 4. Serveur ------------------------------------------------------------
+// --- 4. Server --------------------------------------------------------------
 const server = argValue('server');
 const token = argValue('token');
 

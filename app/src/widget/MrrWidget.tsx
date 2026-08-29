@@ -91,7 +91,7 @@ export function MrrWidget({
     );
   }
 
-  // Format le plus dense : le seul chiffre qui compte, en grand.
+  // Densest layout: the one figure that matters, made large.
   if (density === 'small') {
     return (
       <Shell padding={10}>

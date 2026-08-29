@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Configure la signature release du projet Android.
+ * Configures release signing for the Android project.
  *
  * `expo prebuild` fully regenerates the `android/` folder and puts the debug
  * key back for release builds. This script reapplies the configuration after
@@ -51,7 +51,7 @@ MRR_KEY_PASSWORD=${keyPassword}
 `;
 writeFileSync(propsPath, props);
 
-// --- build.gradle : ajout du signingConfig release
+// --- build.gradle: add the release signingConfig
 let gradle = readFileSync(gradlePath, 'utf8');
 
 if (!gradle.includes('MRR_STORE_FILE')) {

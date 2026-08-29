@@ -101,7 +101,22 @@ detects a full secret key.
 | **Home screen widget** | Resizable, three information densities |
 | **Multi-currency** | Converted to your base currency, rates refreshed daily |
 | **Branding** | Project logos pulled automatically from Stripe account branding |
-| **Bilingual** | English and French, follows the device language |
+| **Bilingual** | English and French, in the app and in the notifications. Follows your phone, or pick one in Settings |
+
+### Language
+
+The app ships in English and French. It follows your phone by default, and
+Settings lets you force one or the other.
+
+The setting reaches the notifications too, which is less obvious than it sounds:
+the notification text is written by the **server**, which has no idea what
+language your phone is in. So the app sends its language along with its push
+token, and the server stores it per device and composes each notification
+accordingly. Two phones registered against the same server can therefore receive
+the same payment worded differently.
+
+Run `npm run check-i18n` in `server/` to print every notification in both
+languages without sending anything.
 
 ### The cash register
 

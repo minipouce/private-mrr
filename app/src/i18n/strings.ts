@@ -157,6 +157,12 @@ export const en = {
 
   // Push notifications
   pushDevicePhysical: 'Push notifications require Google Play Services',
+  language: 'Language',
+  languageAuto: 'Automatic',
+  languageAutoHint: 'Follows your phone',
+  languageEnglish: 'English',
+  languageFrench: 'Français',
+  languageNotifyHint: 'Notifications sent to this phone use this language too.',
   channelPayments: 'Payments received',
   channelPaymentsHint: 'Incoming payments, with a cash register sound',
   channelRevenue: 'Subscriptions and incidents',
@@ -334,6 +340,12 @@ export const fr: Strings = {
   none: 'aucun',
 
   pushDevicePhysical: 'Google Play Services est requis pour recevoir des notifications',
+  language: 'Langue',
+  languageAuto: 'Automatique',
+  languageAutoHint: 'Suit ton téléphone',
+  languageEnglish: 'English',
+  languageFrench: 'Français',
+  languageNotifyHint: 'Les notifications envoyées à ce téléphone suivent aussi cette langue.',
   channelPayments: 'Paiements reçus',
   channelPaymentsHint: 'Encaissements, avec son de caisse',
   channelRevenue: 'Abonnements et incidents',

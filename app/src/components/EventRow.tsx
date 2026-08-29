@@ -56,7 +56,7 @@ export function EventRow({
     outputRange: ['rgba(0,0,0,0)', look.soft],
   });
 
-  // Les mouvements d'abonnement se lisent en MRR, les encaissements en montant.
+  // Subscription movements read as MRR, payments read as an amount.
   const isMrrMove =
     event.kind === 'subscription_created' ||
     event.kind === 'subscription_updated' ||

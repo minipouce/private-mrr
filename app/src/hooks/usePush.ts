@@ -6,7 +6,7 @@ import { router } from 'expo-router';
 import { api } from '../api/client';
 import { loadConfig } from '../api/config';
 import { refreshWidget } from '../widget/refresh';
-import { t } from '../i18n';
+import { activeLanguage, t } from '../i18n';
 
 // A notification received while the app is open must stay visible: without
 // this, a payment landing mid-session goes completely unnoticed.
@@ -98,7 +98,9 @@ export function usePush() {
         return false;
       }
 
-      await api.registerPush(fcmToken, Device.deviceName ?? 'Android');
+      // The language travels with the token: the server composes each
+      // notification in the language of the device it is sending to.
+      await api.registerPush(fcmToken, Device.deviceName ?? 'Android', activeLanguage());
       setToken(fcmToken);
       setStatus('granted');
       setError(null);

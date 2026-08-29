@@ -62,6 +62,19 @@ function migrate(db: Database.Database): void {
     db.exec('ALTER TABLE events ADD COLUMN billing_reason TEXT');
     console.log('[db] migration: billing_reason column added');
   }
+
+  const hasPushTokens = db
+    .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'push_tokens'")
+    .get();
+  if (hasPushTokens) {
+    const pushColumns = (
+      db.prepare('PRAGMA table_info(push_tokens)').all() as { name: string }[]
+    ).map((c) => c.name);
+    if (!pushColumns.includes('locale')) {
+      db.exec("ALTER TABLE push_tokens ADD COLUMN locale TEXT NOT NULL DEFAULT 'en'");
+      console.log('[db] migration: push_tokens.locale column added');
+    }
+  }
 }
 
 export const db = openDatabase();
