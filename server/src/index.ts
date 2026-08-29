@@ -108,6 +108,27 @@ async function boot(): Promise<void> {
 
   // API privée : tout est derrière le jeton Bearer.
   await app.register(async (instance) => {
+    // Certaines actions n'ont pas de données à transmettre. Un client qui
+    // annonce du JSON sans corps se verrait refusé par le parseur par défaut :
+    // on traite le corps vide comme un objet vide plutôt que comme une erreur.
+    instance.addContentTypeParser(
+      'application/json',
+      { parseAs: 'string' },
+      (_req, body, done) => {
+        const raw = (body as string).trim();
+        if (!raw) return done(null, {});
+        try {
+          done(null, JSON.parse(raw));
+        } catch {
+          // Un corps illisible vient du client : le signaler comme tel plutôt
+          // que de laisser Fastify conclure à une panne du serveur.
+          const error = new Error('Corps JSON invalide') as Error & { statusCode?: number };
+          error.statusCode = 400;
+          done(error, undefined);
+        }
+      },
+    );
+
     instance.addHook('onRequest', requireAuth);
     registerApi(instance);
     registerStream(instance);
