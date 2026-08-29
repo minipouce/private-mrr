@@ -1,0 +1,46 @@
+{
+  "name": "private-mrr",
+  "version": "1.0.0",
+  "main": "index.js",
+  "dependencies": {
+    "expo": "~57.0.18",
+    "expo-blur": "~57.0.2",
+    "expo-build-properties": "~57.0.15",
+    "expo-constants": "~57.0.16",
+    "expo-device": "~57.0.1",
+    "expo-haptics": "~57.0.2",
+    "expo-linear-gradient": "~57.0.1",
+    "expo-linking": "~57.0.8",
+    "expo-notifications": "~57.0.15",
+    "expo-router": "~57.0.17",
+    "expo-secure-store": "~57.0.2",
+    "expo-status-bar": "~57.0.1",
+    "expo-system-ui": "~57.0.3",
+    "react": "19.2.3",
+    "react-native": "0.86.3",
+    "react-native-android-widget": "^0.22.1",
+    "react-native-gesture-handler": "~2.32.0",
+    "react-native-reanimated": "4.5.1",
+    "react-native-safe-area-context": "~5.7.0",
+    "react-native-screens": "~4.26.0",
+    "react-native-svg": "15.15.4",
+    "react-native-worklets": "0.10.1"
+  },
+  "devDependencies": {
+    "@types/react": "~19.2.2",
+    "typescript": "~6.0.3"
+  },
+  "scripts": {
+    "start": "expo start",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
+    "web": "expo start --web",
+    "keystore": "keytool -genkeypair -v -keystore credentials/release.keystore -alias privatemrr -keyalg RSA -keysize 4096 -validity 10950 -storepass ${MRR_KEYSTORE_PASSWORD:-privatemrr-local} -keypass ${MRR_KEYSTORE_PASSWORD:-privatemrr-local} -dname \"CN=Private MRR, OU=Perso, O=Perso, C=FR\"",
+    "prebuild": "expo prebuild --platform android --clean && node scripts/configure-signing.mjs",
+    "apk": "node scripts/configure-signing.mjs && cd android && ./gradlew assembleRelease",
+    "apk:install": "adb install -r android/app/build/outputs/apk/release/app-release.apk",
+    "typecheck": "tsc --noEmit",
+    "check:push": "node scripts/check-push.mjs"
+  },
+  "private": true
+}

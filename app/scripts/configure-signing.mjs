@@ -1,0 +1,82 @@
+#!/usr/bin/env node
+/**
+ * Configure la signature release du projet Android.
+ *
+ * `expo prebuild` régénère entièrement le dossier `android/` et y remet la clé
+ * de debug pour les builds release. Ce script réapplique la configuration après
+ * chaque prebuild ; il est idempotent et peut donc être rejoué sans risque.
+ *
+ * Le mot de passe est lu depuis l'environnement et écrit dans
+ * `android/gradle.properties`, qui est ignoré par git.
+ */
+import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { resolve, relative } from 'node:path';
+
+const root = process.cwd();
+const gradlePath = resolve(root, 'android/app/build.gradle');
+const propsPath = resolve(root, 'android/gradle.properties');
+const keystorePath = resolve(root, 'credentials/release.keystore');
+
+if (!existsSync(gradlePath)) {
+  console.error('android/ absent — lance d\'abord: npx expo prebuild --platform android');
+  process.exit(1);
+}
+if (!existsSync(keystorePath)) {
+  console.error(`Keystore introuvable : ${keystorePath}`);
+  console.error('Génère-le avec: npm run keystore');
+  process.exit(1);
+}
+
+const storePassword = process.env.MRR_KEYSTORE_PASSWORD ?? 'privatemrr-local';
+const keyAlias = process.env.MRR_KEY_ALIAS ?? 'privatemrr';
+const keyPassword = process.env.MRR_KEY_PASSWORD ?? storePassword;
+
+// --- gradle.properties : identifiants de signature
+let props = readFileSync(propsPath, 'utf8');
+props = props
+  .split('\n')
+  .filter((line) => !line.startsWith('MRR_'))
+  .join('\n')
+  .replace(/\n+$/, '\n');
+
+// Chemin relatif au module `app`, car Gradle résout `file()` depuis ce dossier.
+const relativeKeystore = relative(resolve(root, 'android/app'), keystorePath);
+
+props += `
+# Signature release — généré par scripts/configure-signing.mjs
+MRR_STORE_FILE=${relativeKeystore}
+MRR_STORE_PASSWORD=${storePassword}
+MRR_KEY_ALIAS=${keyAlias}
+MRR_KEY_PASSWORD=${keyPassword}
+`;
+writeFileSync(propsPath, props);
+
+// --- build.gradle : ajout du signingConfig release
+let gradle = readFileSync(gradlePath, 'utf8');
+
+if (!gradle.includes('MRR_STORE_FILE')) {
+  gradle = gradle.replace(
+    /(signingConfigs\s*\{\s*\n)/,
+    `$1        release {
+            if (project.hasProperty('MRR_STORE_FILE')) {
+                storeFile file(MRR_STORE_FILE)
+                storePassword MRR_STORE_PASSWORD
+                keyAlias MRR_KEY_ALIAS
+                keyPassword MRR_KEY_PASSWORD
+            }
+        }
+`,
+  );
+}
+
+// Bascule le buildType release sur la clé de release plutôt que celle de debug.
+gradle = gradle.replace(
+  /(release\s*\{[^}]*?)signingConfig signingConfigs\.debug/s,
+  '$1signingConfig signingConfigs.release',
+);
+
+writeFileSync(gradlePath, gradle);
+
+console.log('Signature release configurée.');
+console.log(`  keystore : ${relativeKeystore}`);
+console.log(`  alias    : ${keyAlias}`);

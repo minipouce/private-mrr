@@ -1,0 +1,80 @@
+{
+  "expo": {
+    "name": "MRR",
+    "slug": "private-mrr",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "privatemrr",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#08090D",
+    "newArchEnabled": true,
+    "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#08090D"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "android": {
+      "package": "com.tristan.privatemrr",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png",
+        "backgroundColor": "#08090D"
+      },
+      "permissions": [
+        "POST_NOTIFICATIONS",
+        "VIBRATE",
+        "RECEIVE_BOOT_COMPLETED"
+      ]
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      [
+        "expo-notifications",
+        {
+          "color": "#6366F1",
+          "defaultChannel": "revenue",
+          "sounds": [
+            "./assets/sounds/cash.mp3"
+          ]
+        }
+      ],
+      "./plugins/withNetworkSecurity",
+      [
+        "react-native-android-widget",
+        {
+          "widgets": [
+            {
+              "name": "Mrr",
+              "label": "MRR consolidé",
+              "description": "Ton MRR, le CA du jour et du mois, sans ouvrir l’application",
+              "minWidth": "110dp",
+              "minHeight": "40dp",
+              "targetCellWidth": 3,
+              "targetCellHeight": 2,
+              "resizeMode": "horizontal|vertical",
+              "previewImage": "./assets/widget-preview.png",
+              "updatePeriodMillis": 1800000
+            }
+          ]
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "4cee3f1b-b227-4587-8a49-b468abd49ed0"
+      },
+      "devCleartextHosts": []
+    },
+    "owner": "tberguer"
+  }
+}

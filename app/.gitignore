@@ -1,0 +1,15 @@
+node_modules/
+.expo/
+dist/
+android/
+ios/
+credentials/
+*.keystore
+*.jks
+.env
+.env.*
+npm-debug.*
+*.orig.*
+
+# Identifiants Firebase — ne jamais versionner
+google-services.json
