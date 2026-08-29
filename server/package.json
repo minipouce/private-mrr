@@ -12,7 +12,8 @@
     "backfill": "tsx src/cli/backfill.ts",
     "typecheck": "tsc --noEmit",
     "test:fcm": "tsx src/cli/test-fcm.ts",
-    "add-project": "node scripts/add-project.mjs"
+    "add-project": "node scripts/add-project.mjs",
+    "sync-logos": "tsx src/cli/sync-logos.ts"
   },
   "dependencies": {
     "@fastify/cors": "^11.0.1",

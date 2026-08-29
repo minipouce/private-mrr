@@ -1,6 +1,7 @@
 import { db } from '../db/index.js';
 import { config } from '../config.js';
 import { MRR_STATUSES, TRIAL_STATUSES } from '../stripe/normalize.js';
+import { hasLogo } from '../stripe/branding.js';
 
 const MRR_LIST = MRR_STATUSES.map((s) => `'${s}'`).join(',');
 const TRIAL_LIST = TRIAL_STATUSES.map((s) => `'${s}'`).join(',');
@@ -306,6 +307,7 @@ export function overview() {
     projects: projects.map((p) => ({
       ...buildMetrics(p.id, p.name, p.color),
       includedInTotals: p.include_in_totals === 1,
+      hasLogo: hasLogo(p.id),
     })),
   };
 }

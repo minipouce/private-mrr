@@ -8,7 +8,9 @@ import { db, syncProjectsFromConfig } from './db/index.js';
 import { refreshRates } from './lib/money.js';
 import { verifyKeys, liveProjects } from './stripe/client.js';
 import { backfillProject, reconcileProject } from './stripe/backfill.js';
+import { readFileSync } from 'node:fs';
 import { isPushConfigured } from './push/index.js';
+import { hasLogo, logoPath, sniffImageType, syncAllLogos } from './stripe/branding.js';
 import { requireAuth } from './routes/auth.js';
 import { registerApi } from './routes/api.js';
 import { registerWebhooks } from './routes/webhook.js';
@@ -54,6 +56,28 @@ async function boot(): Promise<void> {
   app.get('/robots.txt', async (_request, reply) =>
     reply.type('text/plain').send('User-agent: *\nDisallow: /\n'),
   );
+
+  // Logos servis sans authentification : une notification push doit pouvoir
+  // charger l'image, et un logo de marque n'a rien de confidentiel. Le nom de
+  // projet demandé est validé contre la base pour éviter toute traversée de
+  // répertoire.
+  app.get<{ Params: { projectId: string } }>('/logos/:projectId', async (request, reply) => {
+    const known = db
+      .prepare('SELECT 1 FROM projects WHERE id = ?')
+      .get(request.params.projectId);
+    if (!known || !hasLogo(request.params.projectId)) {
+      return reply.code(404).send({ error: 'logo introuvable' });
+    }
+
+    const buf = readFileSync(logoPath(request.params.projectId));
+    const type = sniffImageType(buf);
+    if (!type) return reply.code(404).send({ error: 'logo illisible' });
+
+    return reply
+      .header('Cache-Control', 'public, max-age=86400')
+      .type(type)
+      .send(buf);
+  });
 
   // L'app mobile n'est pas un navigateur et n'émet pas de requête cross-origin :
   // aucune origine web n'est autorisée par défaut.
@@ -116,6 +140,7 @@ async function boot(): Promise<void> {
       for (const project of liveProjects()) {
         await backfillProject(project);
       }
+      await syncAllLogos(liveProjects());
     })();
   }
 
@@ -135,7 +160,10 @@ function scheduleJobs(): void {
     60 * 60 * 1000,
   );
 
-  const daily = setInterval(() => void refreshRates(), 24 * 60 * 60 * 1000);
+  const daily = setInterval(() => {
+    void refreshRates();
+    if (!config.demoMode) void syncAllLogos(liveProjects());
+  }, 24 * 60 * 60 * 1000);
 
   // `unref` évite que ces minuteries maintiennent le processus en vie à l'arrêt.
   hourly.unref();

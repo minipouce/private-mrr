@@ -1,6 +1,7 @@
 import { db } from '../db/index.js';
 import { config } from '../config.js';
 import { sendToDevice, isConfigured, type FcmMessage } from './fcm.js';
+import { hasLogo } from '../stripe/branding.js';
 import type { EventRow } from '../db/repo.js';
 
 const CURRENCY_FMT = new Intl.NumberFormat('fr-FR', {
@@ -166,6 +167,25 @@ async function broadcast(build: (token: string) => FcmMessage): Promise<number> 
  * Les erreurs sont absorbées : une panne de push ne doit jamais faire échouer
  * l'ingestion d'un webhook, sinon Stripe le rejouerait indéfiniment.
  */
+/** Identité visuelle du projet dans la notification. */
+function projectVisuals(projectId: string): { color?: string; imageUrl?: string } {
+  const row = db
+    .prepare('SELECT color FROM projects WHERE id = ?')
+    .get(projectId) as { color: string } | undefined;
+
+  return {
+    // Android teinte l'icône de notification avec cette couleur : c'est le
+    // moyen natif de distinguer les projets d'un coup d'œil.
+    color: row?.color,
+    // L'image n'est jointe que si le serveur est joignable publiquement :
+    // Firebase la télécharge lui-même, une URL locale échouerait en silence.
+    imageUrl:
+      config.publicUrl && hasLogo(projectId)
+        ? `${config.publicUrl}/logos/${projectId}`
+        : undefined,
+  };
+}
+
 export async function notifyEvent(event: EventRow, projectName: string): Promise<void> {
   try {
     if (!isConfigured()) return;
@@ -176,10 +196,14 @@ export async function notifyEvent(event: EventRow, projectName: string): Promise
     const content = compose(event, projectName);
     if (!content) return;
 
+    const visuals = projectVisuals(event.project_id);
+
     await broadcast((token) => ({
       token,
       title: content.title,
       body: content.body,
+      color: visuals.color,
+      imageUrl: visuals.imageUrl,
       // Permet à l'app d'ouvrir directement le bon projet au tap.
       data: {
         projectId: event.project_id,

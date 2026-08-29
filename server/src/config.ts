@@ -109,6 +109,12 @@ export const config = {
   /** Devise de consolidation. Tous les montants agrégés y sont convertis. */
   baseCurrency: (process.env.BASE_CURRENCY ?? 'eur').toLowerCase(),
 
+  /**
+   * URL publique du serveur. Indispensable aux notifications : Firebase charge
+   * l'image du logo depuis Internet, une adresse locale ne lui servirait à rien.
+   */
+  publicUrl: (process.env.PUBLIC_URL ?? '').replace(/\/+$/, ''),
+
   /** Alimente la base avec des données fictives au lieu d'appeler Stripe. */
   demoMode: process.env.DEMO_MODE === 'true',
 

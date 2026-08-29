@@ -9,6 +9,7 @@ services:
       HOST: 0.0.0.0
       PORT: 8791
       DB_PATH: /data/mrr.db
+      LOGO_DIR: /data/logos
       TZ: Europe/Paris
       FCM_SERVICE_ACCOUNT_PATH: /run/secrets/fcm-service-account.json
     volumes:

@@ -7,6 +7,7 @@ import { backfillProject, reconcileProject } from '../stripe/backfill.js';
 import { MRR_STATUSES, TRIAL_STATUSES } from '../stripe/normalize.js';
 import { bus } from '../lib/bus.js';
 import { isPushConfigured } from '../push/index.js';
+import { hasLogo } from '../stripe/branding.js';
 
 const clamp = (v: number, min: number, max: number) => Math.min(Math.max(v, min), max);
 
@@ -37,6 +38,7 @@ export function registerApi(app: FastifyInstance): void {
     return listProjects().map((p) => ({
       ...p,
       includedInTotals: p.include_in_totals === 1,
+      hasLogo: hasLogo(p.id),
       // `connected` indique qu'une clé Stripe est configurée, sans jamais la divulguer.
       connected: Boolean(config.projectById.get(p.id)?.stripeKey),
       sync: syncById.get(p.id) ?? null,

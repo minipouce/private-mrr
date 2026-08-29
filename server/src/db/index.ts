@@ -50,6 +50,10 @@ function migrate(db: Database.Database): void {
     db.exec('ALTER TABLE projects ADD COLUMN include_in_totals INTEGER NOT NULL DEFAULT 1');
     console.log('[db] migration : colonne include_in_totals ajoutée');
   }
+  if (projectColumns.length > 0 && !projectColumns.includes('logo_updated_at')) {
+    db.exec('ALTER TABLE projects ADD COLUMN logo_updated_at INTEGER');
+    console.log('[db] migration : colonne logo_updated_at ajoutée');
+  }
 }
 
 export const db = openDatabase();
@@ -95,6 +99,7 @@ export interface ProjectRow {
   name: string;
   color: string;
   include_in_totals: number;
+  logo_updated_at: number | null;
   created_at: number;
 }
 

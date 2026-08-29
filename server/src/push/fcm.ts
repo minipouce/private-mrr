@@ -129,6 +129,8 @@ export interface FcmMessage {
   data?: Record<string, string | number>;
   channelId?: string;
   color?: string;
+  /** Image affichée lorsque la notification est dépliée. */
+  imageUrl?: string;
 }
 
 export type SendOutcome =
@@ -163,6 +165,7 @@ export async function sendToDevice(message: FcmMessage): Promise<SendOutcome> {
           sound: 'default',
           color: message.color ?? '#6366F1',
           default_vibrate_timings: true,
+          ...(message.imageUrl ? { image: message.imageUrl } : {}),
         },
       },
       data: Object.fromEntries(

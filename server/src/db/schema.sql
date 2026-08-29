@@ -12,6 +12,8 @@ CREATE TABLE IF NOT EXISTS projects (
   -- Exclure un projet du total consolidé sans cesser de le suivre : utile pour
   -- un compte de test, ou un projet entièrement offert qui fausserait la lecture.
   include_in_totals INTEGER NOT NULL DEFAULT 1,
+  -- Dernière récupération du logo de marque depuis Stripe.
+  logo_updated_at INTEGER,
   created_at  INTEGER NOT NULL
 );
 
