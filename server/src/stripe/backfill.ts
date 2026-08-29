@@ -35,6 +35,38 @@ async function applyDiscount(
   normalized.amount_cents = Math.round(normalized.amount_cents * factor);
 }
 
+/**
+ * Complète un événement déjà présent avec les champs ajoutés après son import.
+ *
+ * L'insertion est idempotente et ignore les doublons, ce qui protège des
+ * relivraisons — mais laisse aussi les anciennes lignes sans les colonnes
+ * apparues depuis. On les renseigne ici, sans jamais écraser une valeur
+ * existante ni supprimer quoi que ce soit.
+ */
+function repairEvent(projectId: string, row: { stripe_object_id: string; billing_reason: string | null; subscription_id: string | null; payment_intent: string | null }): number {
+  if (!row.billing_reason && !row.subscription_id && !row.payment_intent) return 0;
+
+  const result = db
+    .prepare(
+      `UPDATE events SET
+         billing_reason  = COALESCE(billing_reason, @billing_reason),
+         subscription_id = COALESCE(subscription_id, @subscription_id),
+         payment_intent  = COALESCE(payment_intent, @payment_intent)
+       WHERE project_id = @project_id
+         AND stripe_object_id = @stripe_object_id
+         AND (billing_reason IS NULL OR subscription_id IS NULL OR payment_intent IS NULL)`,
+    )
+    .run({
+      project_id: projectId,
+      stripe_object_id: row.stripe_object_id,
+      billing_reason: row.billing_reason,
+      subscription_id: row.subscription_id,
+      payment_intent: row.payment_intent,
+    });
+
+  return result.changes;
+}
+
 /** Profondeur d'historique importée, en mois. 24 permet la comparaison N-1. */
 const BACKFILL_MONTHS = Number(process.env.BACKFILL_MONTHS ?? 24);
 
@@ -73,6 +105,7 @@ export async function backfillProject(
   const from = since();
   let subCount = 0;
   let eventCount = 0;
+  let repaired = 0;
 
   console.log(`[backfill] ${project.id} : import depuis ${new Date(from * 1000).toISOString().slice(0, 10)}`);
 
@@ -133,6 +166,7 @@ export async function backfillProject(
         `backfill:invoice:${invoice.id}`,
       );
       if (insertEvent(row, { publish: false })) eventCount++;
+      else repaired += repairEvent(project.id, row);
     }
 
     // ---- Charges hors facture : paiements ponctuels, et remboursements
@@ -179,7 +213,8 @@ export async function backfillProject(
     ).run(Math.floor(Date.now() / 1000), project.id);
 
     console.log(
-      `[backfill] ${project.id} : ${subCount} abonnements, ${eventCount} événements importés`,
+      `[backfill] ${project.id} : ${subCount} abonnements, ${eventCount} événements importés` +
+        (repaired ? `, ${repaired} complétés` : ''),
     );
   } catch (err) {
     const message = (err as Error).message;
