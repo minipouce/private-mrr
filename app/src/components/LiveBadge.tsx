@@ -1,15 +1,16 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Animated, Easing } from 'react-native';
 import { colors, radius, type } from '../theme/index';
+import { t } from '../i18n';
 
 type Status = 'loading' | 'live' | 'offline' | 'unconfigured' | 'error';
 
-const LOOK: Record<Status, { tint: string; label: string }> = {
-  live:         { tint: colors.positive, label: 'EN DIRECT' },
-  loading:      { tint: colors.textDim,  label: 'CONNEXION' },
-  offline:      { tint: colors.warning,  label: 'HORS LIGNE' },
-  error:        { tint: colors.negative, label: 'ERREUR' },
-  unconfigured: { tint: colors.textFaint, label: 'NON CONFIGURÉ' },
+const LOOK: Record<Status, { tint: string; label: keyof typeof import('../i18n/strings').en }> = {
+  live:         { tint: colors.positive,  label: 'live' },
+  loading:      { tint: colors.textDim,   label: 'connecting' },
+  offline:      { tint: colors.warning,   label: 'offlineBadge' },
+  error:        { tint: colors.negative,  label: 'errorBadge' },
+  unconfigured: { tint: colors.textFaint, label: 'unconfigured' },
 };
 
 /** Pastille d'état du flux temps réel, avec pulsation quand la connexion est vivante. */
@@ -56,7 +57,7 @@ export function LiveBadge({ status }: { status: Status }) {
         )}
         <View style={[styles.dot, { backgroundColor: look.tint }]} />
       </View>
-      <Text style={[styles.label, { color: look.tint }]}>{look.label}</Text>
+      <Text style={[styles.label, { color: look.tint }]}>{t(look.label)}</Text>
     </View>
   );
 }

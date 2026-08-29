@@ -9,6 +9,7 @@ import { saveConfig, clearConfig } from '../src/api/config';
 import { api } from '../src/api/client';
 import { useLive } from '../src/hooks/useLive';
 import { colors, radius, space, type } from '../src/theme/index';
+import { t } from '../src/i18n';
 
 /**
  * Autorise le HTTP en clair uniquement vers une adresse privée ou de bouclage.
@@ -43,15 +44,15 @@ export default function Setup() {
 
     const trimmed = url.trim().replace(/\/+$/, '');
     if (!/^https?:\/\/.+/i.test(trimmed)) {
-      setError("L'adresse doit commencer par https://");
+      setError(t('errorHttps'));
       return;
     }
     if (!trimmed.startsWith('https://') && !isPrivateHost(trimmed)) {
-      setError('Le HTTPS est requis hors réseau local : le jeton circulerait en clair.');
+      setError(t('errorHttpsRequired'));
       return;
     }
     if (token.trim().length < 16) {
-      setError('Le jeton semble trop court');
+      setError(t('errorTokenShort'));
       return;
     }
 
@@ -84,19 +85,16 @@ export default function Setup() {
           <Text style={styles.brandGlyph}>◈</Text>
         </View>
 
-        <Text style={styles.title}>Connexion au serveur</Text>
-        <Text style={styles.subtitle}>
-          Tes clés Stripe restent sur ton serveur. L'app ne détient qu'un jeton de
-          lecture, révocable à tout moment.
-        </Text>
+        <Text style={styles.title}>{t('setupTitle')}</Text>
+        <Text style={styles.subtitle}>{t('setupSubtitle')}</Text>
 
         <View style={styles.field}>
-          <Text style={styles.label}>ADRESSE DU SERVEUR</Text>
+          <Text style={styles.label}>{t('serverAddress')}</Text>
           <TextInput
             style={styles.input}
             value={url}
             onChangeText={setUrl}
-            placeholder="https://mrr.tondomaine.com"
+            placeholder={t('serverPlaceholder')}
             placeholderTextColor={colors.textFaint}
             autoCapitalize="none"
             autoCorrect={false}
@@ -106,12 +104,12 @@ export default function Setup() {
         </View>
 
         <View style={styles.field}>
-          <Text style={styles.label}>JETON D'API</Text>
+          <Text style={styles.label}>{t('apiToken')}</Text>
           <TextInput
             style={styles.input}
             value={token}
             onChangeText={setToken}
-            placeholder="collé depuis ton .env"
+            placeholder={t('apiTokenPlaceholder')}
             placeholderTextColor={colors.textFaint}
             autoCapitalize="none"
             autoCorrect={false}
@@ -133,13 +131,11 @@ export default function Setup() {
           {busy ? (
             <ActivityIndicator color="#fff" />
           ) : (
-            <Text style={styles.buttonText}>Se connecter</Text>
+            <Text style={styles.buttonText}>{t('connect')}</Text>
           )}
         </Pressable>
 
-        <Text style={styles.footnote}>
-          Le jeton est stocké chiffré dans le keystore Android, jamais en clair.
-        </Text>
+        <Text style={styles.footnote}>{t('setupFootnote')}</Text>
       </ScrollView>
     </KeyboardAvoidingView>
   );

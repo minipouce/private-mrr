@@ -16,6 +16,7 @@ import { Card, SectionTitle, Stat, EmptyState, Divider } from '../../src/compone
 import { ProjectLogo } from '../../src/components/ProjectLogo';
 import { GoalBar } from '../../src/components/GoalBar';
 import type { DailyPoint, MonthlyPoint, Metrics, Subscriber } from '../../src/api/types';
+import { t, plural } from '../../src/i18n';
 
 export default function ProjectDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -120,8 +121,9 @@ export default function ProjectDetail() {
           <Text style={styles.heroLabel}>{money(metrics.arrCents, metrics.currency)} ARR</Text>
           <View style={styles.heroSep} />
           <Text style={styles.heroLabel}>
-            {metrics.activeSubscribers} abonné{metrics.activeSubscribers > 1 ? 's' : ''}
-            {metrics.trials > 0 ? ` · ${metrics.trials} en essai` : ''}
+            {metrics.activeSubscribers}{' '}
+            {plural(metrics.activeSubscribers, 'subscriber', 'subscribers')}
+            {metrics.trials > 0 ? ` · ${metrics.trials} ${t('onTrial')}` : ''}
           </Text>
         </View>
       </View>
@@ -136,13 +138,13 @@ export default function ProjectDetail() {
         <View style={styles.chartHead}>
           <View>
             <Text style={styles.chartValue}>{money(metrics.last30Cents, metrics.currency)}</Text>
-            <Text style={styles.chartLabel}>encaissé sur 30 jours</Text>
+            <Text style={styles.chartLabel}>{t('collectedOver30Days')}</Text>
           </View>
           <View style={{ alignItems: 'flex-end' }}>
             <Text style={[styles.chartValue, { color: colors.positive }]}>
               {money(metrics.todayCents, metrics.currency)}
             </Text>
-            <Text style={styles.chartLabel}>aujourd'hui</Text>
+            <Text style={styles.chartLabel}>{t('today')}</Text>
           </View>
         </View>
         <Chart values={daily.map((d) => d.cents)} width={chartWidth} height={116} color={metrics.color} baseline />
@@ -151,9 +153,9 @@ export default function ProjectDetail() {
       <View style={styles.statRow}>
         <Card style={{ flex: 1 }}>
           <Stat
-            label="Ce mois"
+            label={t('thisMonth')}
             value={moneyCompact(metrics.mtdCents, metrics.currency)}
-            hint={metrics.mtdVsPrevPct !== null ? `${percent(metrics.mtdVsPrevPct)} vs M-1` : undefined}
+            hint={metrics.mtdVsPrevPct !== null ? `${percent(metrics.mtdVsPrevPct)} ${t('vsPrevMonth')}` : undefined}
             hintColor={
               metrics.mtdVsPrevPct === null
                 ? undefined
@@ -164,32 +166,32 @@ export default function ProjectDetail() {
           />
         </Card>
         <Card style={{ flex: 1 }}>
-          <Stat label="Depuis janvier" value={moneyCompact(metrics.ytdCents, metrics.currency)} />
+          <Stat label={t('sinceJanuary')} value={moneyCompact(metrics.ytdCents, metrics.currency)} />
         </Card>
       </View>
 
       <Card style={styles.projectionCard}>
-        <Text style={styles.projectionLabel}>PROJECTION FIN {new Date().getFullYear()}</Text>
+        <Text style={styles.projectionLabel}>{t('projectionEndOf')} {new Date().getFullYear()}</Text>
         <Text style={styles.projectionValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
           {money(metrics.projection.projectedYearEndCents, metrics.currency)}
         </Text>
         <Text style={styles.projectionHint}>
-          dont {moneyCompact(metrics.projection.ytdCents, metrics.currency)} déjà encaissés ·
-          run-rate {moneyCompact(metrics.projection.runRateCents, metrics.currency)}
+          {t('ofWhichCollected')} {moneyCompact(metrics.projection.ytdCents, metrics.currency)} ·{' '}
+          {t('runRate')} {moneyCompact(metrics.projection.runRateCents, metrics.currency)}
         </Text>
       </Card>
 
-      <SectionTitle>Mouvement du MRR ce mois</SectionTitle>
+      <SectionTitle>{t('mrrMovementThisMonth')}</SectionTitle>
       <Card>
-        <MovementLine label="Nouveaux abonnés" cents={movement.newMrrCents} currency={metrics.currency} />
+        <MovementLine label={t('newCustomers')} cents={movement.newMrrCents} currency={metrics.currency} />
         <Divider />
-        <MovementLine label="Expansion" cents={movement.expansionCents} currency={metrics.currency} />
+        <MovementLine label={t('expansion')} cents={movement.expansionCents} currency={metrics.currency} />
         <Divider />
-        <MovementLine label="Contraction" cents={movement.contractionCents} currency={metrics.currency} />
+        <MovementLine label={t('contraction')} cents={movement.contractionCents} currency={metrics.currency} />
         <Divider />
-        <MovementLine label="Churn" cents={movement.churnedCents} currency={metrics.currency} />
+        <MovementLine label={t('churn')} cents={movement.churnedCents} currency={metrics.currency} />
         <View style={styles.netRow}>
-          <Text style={styles.netLabel}>Net</Text>
+          <Text style={styles.netLabel}>{t('net')}</Text>
           <Text
             style={[
               styles.netValue,
@@ -201,14 +203,14 @@ export default function ProjectDetail() {
         </View>
       </Card>
 
-      <SectionTitle>6 derniers mois</SectionTitle>
+      <SectionTitle>{t('lastSixMonths')}</SectionTitle>
       <Card>
         <Bars data={monthly} color={metrics.color} currency={metrics.currency} />
       </Card>
 
       {subscribers.length > 0 && (
         <>
-          <SectionTitle>Meilleurs abonnés</SectionTitle>
+          <SectionTitle>{t('topSubscribers')}</SectionTitle>
           <Card padded={false} style={styles.list}>
             {subscribers.map((sub, index) => (
               <View key={sub.id}>
@@ -220,8 +222,8 @@ export default function ProjectDetail() {
                     </Text>
                     <Text style={styles.subMeta} numberOfLines={1}>
                       {sub.product_name ?? '—'}
-                      {sub.status === 'trialing' ? ' · essai' : ''}
-                      {sub.status === 'past_due' ? ' · impayé' : ''}
+                      {sub.status === 'trialing' ? ` · ${t('trialLabel')}` : ''}
+                      {sub.status === 'past_due' ? ` · ${t('pastDueLabel')}` : ''}
                     </Text>
                   </View>
                   <Text style={styles.subAmount}>
@@ -234,7 +236,7 @@ export default function ProjectDetail() {
         </>
       )}
 
-      <SectionTitle>Activité récente</SectionTitle>
+      <SectionTitle>{t('recentActivity')}</SectionTitle>
       <Card padded={false} style={styles.feed}>
         {projectEvents.slice(0, 15).map((event) => (
           <EventRow
@@ -245,7 +247,7 @@ export default function ProjectDetail() {
             showProject={false}
           />
         ))}
-        {projectEvents.length === 0 && <EmptyState title="Aucun événement récent" />}
+        {projectEvents.length === 0 && <EmptyState title={t('noRecentEvents')} />}
       </Card>
     </ScrollView>
   );

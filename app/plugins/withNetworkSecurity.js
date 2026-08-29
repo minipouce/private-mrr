@@ -43,7 +43,7 @@ module.exports = function withNetworkSecurity(config) {
   // Hôtes de développement supplémentaires, déclarés dans app.json sous
   // `extra.devCleartextHosts` — typiquement l'IP de la machine de développement
   // pour tester depuis un téléphone réel sur le réseau local, par exemple
-  // ["192.168.1.39"]. En production l'API passe par HTTPS : la liste reste vide,
+  // ["192.168.1.x"]. En production l'API passe par HTTPS : la liste reste vide,
   // et le HTTP en clair est alors refusé partout sauf boucle locale et émulateur.
   const extra = config.extra?.devCleartextHosts ?? [];
   const hosts = [...new Set([...ALWAYS_ALLOWED, ...extra])];

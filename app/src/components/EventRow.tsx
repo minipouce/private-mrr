@@ -4,18 +4,19 @@ import { colors, radius, space, type } from '../theme/index';
 import { moneyPrecise, signed, timeAgo, customerLabel } from '../lib/format';
 import type { EventKind, RevenueEvent } from '../api/types';
 import { ProjectLogo } from './ProjectLogo';
+import { t } from '../i18n';
 
 const PRESENTATION: Record<
   EventKind,
-  { glyph: string; tint: string; soft: string; label: string }
+  { glyph: string; tint: string; soft: string; label: keyof typeof import('../i18n/strings').en }
 > = {
-  payment:               { glyph: '↑', tint: colors.positive, soft: colors.positiveSoft, label: 'Paiement' },
-  refund:                { glyph: '↩', tint: colors.warning,  soft: colors.warningSoft,  label: 'Remboursement' },
-  payment_failed:        { glyph: '!', tint: colors.negative, soft: colors.negativeSoft, label: 'Échec' },
-  subscription_created:  { glyph: '✦', tint: colors.accent,   soft: colors.accentSoft,   label: 'Nouvel abonné' },
-  subscription_updated:  { glyph: '⇅', tint: colors.accent,   soft: colors.accentSoft,   label: 'Changement' },
-  subscription_canceled: { glyph: '×', tint: colors.negative, soft: colors.negativeSoft, label: 'Annulation' },
-  trial_started:         { glyph: '◷', tint: colors.textDim,  soft: colors.surfaceHi,    label: 'Essai' },
+  payment:               { glyph: '↑', tint: colors.positive, soft: colors.positiveSoft, label: 'eventPayment' },
+  refund:                { glyph: '↩', tint: colors.warning,  soft: colors.warningSoft,  label: 'eventRefund' },
+  payment_failed:        { glyph: '!', tint: colors.negative, soft: colors.negativeSoft, label: 'eventFailed' },
+  subscription_created:  { glyph: '✦', tint: colors.accent,   soft: colors.accentSoft,   label: 'eventNewSubscriber' },
+  subscription_updated:  { glyph: '⇅', tint: colors.accent,   soft: colors.accentSoft,   label: 'eventChange' },
+  subscription_canceled: { glyph: '×', tint: colors.negative, soft: colors.negativeSoft, label: 'eventCancellation' },
+  trial_started:         { glyph: '◷', tint: colors.textDim,  soft: colors.surfaceHi,    label: 'eventTrial' },
 };
 
 interface Props {
@@ -100,7 +101,7 @@ export function EventRow({
               </>
             )}
             <Text style={styles.meta} numberOfLines={1}>
-              {look.label}
+              {t(look.label)}
             </Text>
           </View>
         </View>

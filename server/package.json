@@ -13,7 +13,9 @@
     "typecheck": "tsc --noEmit",
     "test:fcm": "tsx src/cli/test-fcm.ts",
     "add-project": "node scripts/add-project.mjs",
-    "sync-logos": "tsx src/cli/sync-logos.ts"
+    "sync-logos": "tsx src/cli/sync-logos.ts",
+    "replay": "tsx src/cli/replay-webhook.ts",
+    "check-keys": "tsx src/cli/check-keys.ts"
   },
   "dependencies": {
     "@fastify/cors": "^11.0.1",

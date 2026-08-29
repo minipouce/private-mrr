@@ -1,5 +1,6 @@
 import React from 'react';
 import { FlexWidget, TextWidget } from 'react-native-android-widget';
+import { t } from '../i18n';
 
 /**
  * Widget d'écran d'accueil, adaptatif.
@@ -121,7 +122,7 @@ export function MrrWidget({
     return (
       <Shell padding={12}>
         <TextWidget
-          text="MRR CONSOLIDÉ"
+          text={t('widgetMrrLabel')}
           style={{ fontSize: 8, color: FAINT, fontWeight: '600', letterSpacing: 1 }}
         />
         <TextWidget
@@ -134,7 +135,7 @@ export function MrrWidget({
             style={{ fontSize: 11, color: POSITIVE, fontWeight: '700' }}
           />
           <FlexWidget style={{ width: 5 }} />
-          <TextWidget text="aujourd'hui" style={{ fontSize: 9, color: FAINT }} />
+          <TextWidget text={t('widgetTodayLower')} style={{ fontSize: 9, color: FAINT }} />
         </FlexWidget>
       </Shell>
     );
@@ -146,7 +147,7 @@ export function MrrWidget({
   return (
     <Shell padding={14}>
       <TextWidget
-        text="MRR CONSOLIDÉ"
+        text={t('widgetMrrLabel')}
         style={{ fontSize: 9, color: FAINT, fontWeight: '600', letterSpacing: 1 }}
       />
 
@@ -176,7 +177,7 @@ export function MrrWidget({
         }}
       >
         <FlexWidget style={{ flexDirection: 'column' }}>
-          <TextWidget text="AUJOURD'HUI" style={{ fontSize: 8, color: FAINT, fontWeight: '600' }} />
+          <TextWidget text={t('widgetToday')} style={{ fontSize: 8, color: FAINT, fontWeight: '600' }} />
           <TextWidget
             text={data.today}
             style={{ fontSize: 13, color: POSITIVE, fontWeight: '700' }}
@@ -186,7 +187,7 @@ export function MrrWidget({
         <FlexWidget style={{ width: 18 }} />
 
         <FlexWidget style={{ flexDirection: 'column' }}>
-          <TextWidget text="CE MOIS" style={{ fontSize: 8, color: FAINT, fontWeight: '600' }} />
+          <TextWidget text={t('widgetThisMonth')} style={{ fontSize: 8, color: FAINT, fontWeight: '600' }} />
           <TextWidget text={data.mtd} style={{ fontSize: 13, color: DIM, fontWeight: '700' }} />
         </FlexWidget>
 

@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, Pressable, Switch, Alert, ActivityIndicator,
+  View, Text, StyleSheet, ScrollView, Pressable, Switch, Alert, ActivityIndicator, Linking,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -14,6 +14,7 @@ import { money, timeAgo } from '../../src/lib/format';
 import { ProjectLogo } from '../../src/components/ProjectLogo';
 import { GoalEditor } from '../../src/components/GoalEditor';
 import type { NotificationPrefs, ProjectInfo } from '../../src/api/types';
+import { t } from '../../src/i18n';
 
 export default function Settings() {
   const insets = useSafeAreaInsets();
@@ -59,7 +60,7 @@ export default function Settings() {
       setProjects((prev) =>
         prev.map((p) => (p.id === projectId ? { ...p, includedInTotals: current } : p)),
       );
-      Alert.alert('Échec', "Le réglage n'a pas pu être enregistré.");
+      Alert.alert(t('failed'), t('settingNotSaved'));
     }
   };
 
@@ -83,7 +84,7 @@ export default function Settings() {
       setPrefs((prev) => ({ ...prev, [projectId]: updated }));
     } catch {
       setPrefs((prev) => ({ ...prev, [projectId]: current }));
-      Alert.alert('Échec', "La préférence n'a pas pu être enregistrée.");
+      Alert.alert(t('failed'), t('prefNotSaved'));
     }
   };
 
@@ -91,20 +92,18 @@ export default function Settings() {
     if (push.status !== 'granted') {
       const ok = await push.register();
       if (!ok) {
-        Alert.alert('Notifications', push.error ?? 'Activation impossible');
+        Alert.alert(t('notifications'), push.error ?? t('notificationsUnavailable'));
         return;
       }
     }
     try {
       const result = await api.testPush();
       Alert.alert(
-        'Test envoyé',
-        result.sent > 0
-          ? `Notification envoyée à ${result.sent} appareil${result.sent > 1 ? 's' : ''}.`
-          : 'Aucun appareil enregistré côté serveur.',
+        t('testSent'),
+        result.sent > 0 ? t('testSentTo', { count: result.sent }) : t('noDeviceRegistered'),
       );
     } catch (err) {
-      Alert.alert('Échec', (err as Error).message);
+      Alert.alert(t('failed'), (err as Error).message);
     }
   };
 
@@ -113,9 +112,9 @@ export default function Settings() {
     try {
       const result = await api.reconcile();
       await refresh();
-      Alert.alert('Synchronisation', `${result.reconciled} abonnements resynchronisés depuis Stripe.`);
+      Alert.alert(t('syncDone'), t('syncResult', { count: result.reconciled }));
     } catch (err) {
-      Alert.alert('Échec', (err as Error).message);
+      Alert.alert(t('failed'), (err as Error).message);
     } finally {
       setSyncing(false);
     }
@@ -123,12 +122,12 @@ export default function Settings() {
 
   const disconnect = () => {
     Alert.alert(
-      'Se déconnecter',
-      "L'adresse du serveur et le jeton seront effacés de cet appareil.",
+      t('disconnect'),
+      t('disconnectConfirm'),
       [
-        { text: 'Annuler', style: 'cancel' },
+        { text: t('cancel'), style: 'cancel' },
         {
-          text: 'Se déconnecter',
+          text: t('disconnect'),
           style: 'destructive',
           onPress: async () => {
             await clearConfig();
@@ -148,37 +147,37 @@ export default function Settings() {
       ]}
       showsVerticalScrollIndicator={false}
     >
-      <Text style={styles.title}>Réglages</Text>
+      <Text style={styles.title}>{t('settings')}</Text>
 
-      <SectionTitle>Serveur</SectionTitle>
+      <SectionTitle>{t('server')}</SectionTitle>
       <Card>
-        <Row label="Adresse" value={serverUrl ?? '—'} mono />
+        <Row label={t('address')} value={serverUrl ?? '—'} mono />
         <Divider />
         <Row
-          label="État"
-          value={status === 'live' ? 'Connecté en direct' : status === 'offline' ? 'Hors ligne' : status}
+          label={t('status')}
+          value={status === 'live' ? t('connectedLive') : status === 'offline' ? t('offline') : status}
           valueColor={status === 'live' ? colors.positive : colors.warning}
         />
         {overview && (
           <>
             <Divider />
-            <Row label="Dernier calcul" value={timeAgo(overview.generatedAt)} />
+            <Row label={t('lastComputed')} value={timeAgo(overview.generatedAt)} />
           </>
         )}
       </Card>
 
-      <SectionTitle>Notifications</SectionTitle>
+      <SectionTitle>{t('notifications')}</SectionTitle>
       <Card>
         <Row
-          label="Autorisation"
+          label={t('permission')}
           value={
             push.status === 'granted'
-              ? 'Accordée'
+              ? t('granted')
               : push.status === 'denied'
-                ? 'Refusée'
+                ? t('denied')
                 : push.status === 'unsupported'
-                  ? 'Appareil non compatible'
-                  : 'Non demandée'
+                  ? t('unsupportedDevice')
+                  : t('notRequested')
           }
           valueColor={push.status === 'granted' ? colors.positive : colors.textDim}
         />
@@ -186,16 +185,16 @@ export default function Settings() {
         <Divider />
         <Pressable onPress={testNotification} style={styles.action}>
           <Text style={styles.actionText}>
-            {push.status === 'granted' ? 'Envoyer une notification test' : 'Activer les notifications'}
+            {push.status === 'granted' ? t('sendTestNotification') : t('enableNotifications')}
           </Text>
           <Text style={styles.chevron}>›</Text>
         </Pressable>
       </Card>
 
-      <SectionTitle>Objectif global</SectionTitle>
+      <SectionTitle>{t('globalGoal')}</SectionTitle>
       <Card>
         <GoalEditor
-          label="OBJECTIF CONSOLIDÉ, TOUS PROJETS CONFONDUS"
+          label={t('goalAcrossProjects')}
           cents={goal?.cents ?? null}
           kind={goal?.kind === 'arr' ? 'arr' : 'mrr'}
           onSave={async (cents, kind) => {
@@ -206,7 +205,7 @@ export default function Settings() {
         />
       </Card>
 
-      <SectionTitle>Alertes et objectifs par projet</SectionTitle>
+      <SectionTitle>{t('alertsAndGoals')}</SectionTitle>
       <View style={styles.projectPrefs}>
         {projects.map((project) => {
           const pref = prefs[project.id];
@@ -221,11 +220,11 @@ export default function Settings() {
                   size={22}
                 />
                 <Text style={styles.prefName}>{project.name}</Text>
-                {!project.connected && <Text style={styles.badgeDemo}>démo</Text>}
+                {!project.connected && <Text style={styles.badgeDemo}>{t('demoBadge')}</Text>}
               </View>
 
               <GoalEditor
-                label="OBJECTIF DE CE PROJET"
+                label={t('projectGoal')}
                 cents={project.goal_cents}
                 kind={project.goal_kind === 'arr' ? 'arr' : 'mrr'}
                 onSave={async (cents, kind) => {
@@ -236,59 +235,85 @@ export default function Settings() {
               />
               <View style={styles.prefSep} />
               <PrefToggle
-                label="Compter dans le total"
+                label={t('countInTotal')}
                 value={project.includedInTotals !== false}
                 onChange={() => toggleIncluded(project.id, project.includedInTotals !== false)}
               />
               <View style={styles.prefSep} />
               <PrefToggle
-                label="Paiements"
+                label={t('notifyPayments')}
                 value={pref.notify_payments === 1}
                 onChange={() => togglePref(project.id, 'notify_payments')}
               />
               <PrefToggle
-                label="Nouveaux abonnés"
+                label={t('notifyNewSubscribers')}
                 value={pref.notify_signups === 1}
                 onChange={() => togglePref(project.id, 'notify_signups')}
               />
               <PrefToggle
-                label="Annulations"
+                label={t('notifyCancellations')}
                 value={pref.notify_cancels === 1}
                 onChange={() => togglePref(project.id, 'notify_cancels')}
               />
               <PrefToggle
-                label="Échecs de paiement"
+                label={t('notifyFailures')}
                 value={pref.notify_failures === 1}
                 onChange={() => togglePref(project.id, 'notify_failures')}
               />
 
               {pref.min_amount_cents > 0 && (
                 <Text style={styles.hint}>
-                  Seuls les paiements ≥ {money(pref.min_amount_cents)} déclenchent une alerte.
+                  {t('minAmountHint', { amount: money(pref.min_amount_cents) })}
                 </Text>
               )}
 
               {project.sync?.last_error && (
-                <Text style={styles.syncError}>Erreur Stripe : {project.sync.last_error}</Text>
+                <Text style={styles.syncError}>{t('stripeError')} : {project.sync.last_error}</Text>
               )}
             </Card>
           );
         })}
-        {projects.length === 0 && <Text style={styles.hint}>Aucun projet configuré.</Text>}
+        {projects.length === 0 && <Text style={styles.hint}>{t('noProjects')}</Text>}
       </View>
 
-      <SectionTitle>Maintenance</SectionTitle>
+      <SectionTitle>{t('about')}</SectionTitle>
+      <Card>
+        <Row label={t('builtBy')} value={t('openSource')} />
+        <Divider />
+        <Pressable onPress={() => Linking.openURL('https://x.com/TBerguer')} style={styles.action}>
+          <Text style={styles.actionText}>X · @TBerguer</Text>
+          <Text style={styles.chevron}>›</Text>
+        </Pressable>
+        <Divider />
+        <Pressable
+          onPress={() => Linking.openURL('https://www.linkedin.com/in/tristanberguer/')}
+          style={styles.action}
+        >
+          <Text style={styles.actionText}>LinkedIn · Tristan Berguer</Text>
+          <Text style={styles.chevron}>›</Text>
+        </Pressable>
+        <Divider />
+        <Pressable
+          onPress={() => Linking.openURL('https://github.com/minipouce/private-mrr')}
+          style={styles.action}
+        >
+          <Text style={styles.actionText}>GitHub · minipouce/private-mrr</Text>
+          <Text style={styles.chevron}>›</Text>
+        </Pressable>
+      </Card>
+
+      <SectionTitle>{t('maintenance')}</SectionTitle>
       <Card>
         <Pressable onPress={reconcile} disabled={syncing} style={styles.action}>
           <View>
-            <Text style={styles.actionText}>Resynchroniser avec Stripe</Text>
-            <Text style={styles.actionHint}>Rattrape un webhook manqué</Text>
+            <Text style={styles.actionText}>{t('resyncStripe')}</Text>
+            <Text style={styles.actionHint}>{t('resyncHint')}</Text>
           </View>
           {syncing ? <ActivityIndicator color={colors.accent} /> : <Text style={styles.chevron}>›</Text>}
         </Pressable>
         <Divider />
         <Pressable onPress={disconnect} style={styles.action}>
-          <Text style={[styles.actionText, { color: colors.negative }]}>Se déconnecter</Text>
+          <Text style={[styles.actionText, { color: colors.negative }]}>{t('disconnect')}</Text>
           <Text style={styles.chevron}>›</Text>
         </Pressable>
       </Card>

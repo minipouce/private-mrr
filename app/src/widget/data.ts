@@ -3,6 +3,7 @@ import { loadConfig } from '../api/config';
 import { moneyCompact, percent } from '../lib/format';
 import type { Overview } from '../api/types';
 import type { WidgetData } from './MrrWidget';
+import { t } from '../i18n';
 
 /**
  * Données du widget, avec conservation des derniers chiffres connus.
@@ -57,7 +58,7 @@ async function writeCache(data: WidgetData): Promise<void> {
 
 export async function loadWidgetData(): Promise<WidgetData> {
   const config = await loadConfig();
-  if (!config) return fallback("Ouvre l'app pour configurer");
+  if (!config) return fallback(t('widgetConfigure'));
 
   const cached = await readCache();
 
@@ -71,18 +72,18 @@ export async function loadWidgetData(): Promise<WidgetData> {
 
     // Un jeton refusé n'a rien de passager : le signaler vaut mieux que
     // d'afficher indéfiniment des chiffres que plus rien ne rafraîchira.
-    if (res.status === 401) return fallback('Jeton refusé');
+    if (res.status === 401) return fallback(t('widgetTokenRejected'));
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
     const data = (await res.json()) as Overview;
-    const t = data.total;
+    const m = data.total;
 
     const fresh: WidgetData = {
-      mrr: moneyCompact(t.mrrCents, t.currency),
-      today: moneyCompact(t.todayCents, t.currency),
-      mtd: moneyCompact(t.mtdCents, t.currency),
-      delta: t.mtdVsPrevPct !== null ? `${percent(t.mtdVsPrevPct)} vs mois dernier` : null,
-      deltaPositive: (t.mtdVsPrevPct ?? 0) >= 0,
+      mrr: moneyCompact(m.mrrCents, m.currency),
+      today: moneyCompact(m.todayCents, m.currency),
+      mtd: moneyCompact(m.mtdCents, m.currency),
+      delta: m.mtdVsPrevPct !== null ? `${percent(m.mtdVsPrevPct)} vs mois dernier` : null,
+      deltaPositive: (m.mtdVsPrevPct ?? 0) >= 0,
       updatedAt: `à ${stamp(new Date())}`,
     };
 
@@ -92,6 +93,6 @@ export async function loadWidgetData(): Promise<WidgetData> {
     // Réseau coupé, veille profonde, serveur muet : on garde ce qu'on sait,
     // en indiquant que la donnée n'est plus fraîche.
     if (cached) return { ...cached, stale: true };
-    return fallback('Serveur injoignable');
+    return fallback(t('widgetUnreachable'));
   }
 }

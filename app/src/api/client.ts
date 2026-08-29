@@ -1,4 +1,5 @@
 import { loadConfig } from './config';
+import { t } from '../i18n';
 import type {
   Overview, RevenueEvent, DailyPoint, MonthlyPoint,
   Subscriber, NotificationPrefs, ProjectInfo, Metrics,
@@ -15,7 +16,7 @@ export class ApiError extends Error {
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const config = await loadConfig();
-  if (!config) throw new ApiError('Serveur non configuré', 0);
+  if (!config) throw new ApiError(t('serverNotConfigured'), 0);
 
   let response: Response;
   try {
@@ -32,17 +33,17 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   } catch (err) {
     throw new ApiError(
       (err as Error).name === 'TimeoutError'
-        ? 'Le serveur ne répond pas'
-        : 'Serveur injoignable',
+        ? t('serverNotResponding')
+        : t('serverUnreachable'),
       0,
     );
   }
 
   if (response.status === 401) {
-    throw new ApiError('Jeton refusé par le serveur', 401);
+    throw new ApiError(t('tokenRejected'), 401);
   }
   if (!response.ok) {
-    throw new ApiError(`Erreur serveur (${response.status})`, response.status);
+    throw new ApiError(`${t('errorBadge')} ${response.status}`, response.status);
   }
   return (await response.json()) as T;
 }

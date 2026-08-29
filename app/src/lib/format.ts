@@ -1,4 +1,11 @@
-/** Formatage des montants et des dates, en français. */
+/**
+ * Formatage des montants et des dates.
+ *
+ * La locale suit la langue détectée : un montant écrit « 1 234,50 € » en
+ * français doit se lire « €1,234.50 » en anglais, sans quoi l'interface
+ * traduite garderait une typographie étrangère.
+ */
+import { intlLocale, t } from '../i18n';
 
 const FULL = new Map<string, Intl.NumberFormat>();
 
@@ -6,7 +13,7 @@ function fullFormatter(currency: string): Intl.NumberFormat {
   const key = currency.toUpperCase();
   let fmt = FULL.get(key);
   if (!fmt) {
-    fmt = new Intl.NumberFormat('fr-FR', {
+    fmt = new Intl.NumberFormat(intlLocale, {
       style: 'currency',
       currency: key,
       maximumFractionDigits: 0,
@@ -47,16 +54,24 @@ export function moneyCompact(cents: number, currency = 'eur'): string {
   // ferait gagner en place : « 3 669 € » se lit mieux que « 3,7 k€ ».
   if (abs < 10_000) return fullFormatter(currency).format(units);
 
+  // Le séparateur décimal suit la langue : une virgule en français, un point
+  // en anglais. Le coder en dur donnait « 131,7 k€ » dans une interface anglaise.
+  const decimals = (value: number, digits: number) =>
+    new Intl.NumberFormat(intlLocale, {
+      minimumFractionDigits: digits,
+      maximumFractionDigits: digits,
+    }).format(value);
+
   if (abs < 1_000_000) {
-    return `${sign}${(abs / 1000).toFixed(1).replace('.', ',')}\u202fk${symbol}`;
+    return `${sign}${decimals(abs / 1000, 1)}\u202fk${symbol}`;
   }
 
-  return `${sign}${(abs / 1_000_000).toFixed(2).replace('.', ',')}\u202fM${symbol}`;
+  return `${sign}${decimals(abs / 1_000_000, 2)}\u202fM${symbol}`;
 }
 
 /** Montant avec centimes, pour les lignes d'événement individuelles. */
 export function moneyPrecise(cents: number, currency = 'eur'): string {
-  return new Intl.NumberFormat('fr-FR', {
+  return new Intl.NumberFormat(intlLocale, {
     style: 'currency',
     currency: currency.toUpperCase(),
     minimumFractionDigits: 2,
@@ -72,18 +87,22 @@ export function signed(cents: number, currency = 'eur'): string {
 export function percent(value: number | null): string {
   if (value === null || !Number.isFinite(value)) return '—';
   const sign = value > 0 ? '+' : value < 0 ? '−' : '';
-  return `${sign}${Math.abs(value).toFixed(1).replace('.', ',')} %`;
+  return `${sign}${new Intl.NumberFormat(intlLocale, {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  }).format(Math.abs(value))} %`;
 }
 
 /** Temps écoulé, compact : « à l'instant », « 12 min », « 3 h », « 5 j ». */
 export function timeAgo(unixSeconds: number): string {
   const diff = Math.floor(Date.now() / 1000) - unixSeconds;
-  if (diff < 45) return "à l'instant";
-  if (diff < 3600) return `${Math.floor(diff / 60)} min`;
-  if (diff < 86_400) return `${Math.floor(diff / 3600)} h`;
-  if (diff < 604_800) return `${Math.floor(diff / 86_400)} j`;
+  if (diff < 45) return t('justNow');
+  // Entre 45 et 59 secondes, la division tomberait à zéro : « 0 min » n'a aucun sens.
+  if (diff < 3600) return `${Math.max(1, Math.floor(diff / 60))} ${t('minutesShort')}`;
+  if (diff < 86_400) return `${Math.floor(diff / 3600)} ${t('hoursShort')}`;
+  if (diff < 604_800) return `${Math.floor(diff / 86_400)} ${t('daysShort')}`;
 
-  return new Date(unixSeconds * 1000).toLocaleDateString('fr-FR', {
+  return new Date(unixSeconds * 1000).toLocaleDateString(intlLocale, {
     day: 'numeric',
     month: 'short',
   });
@@ -91,7 +110,7 @@ export function timeAgo(unixSeconds: number): string {
 
 export function dayLabel(iso: string): string {
   const [y, m, d] = iso.split('-').map(Number);
-  return new Date(y!, m! - 1, d!).toLocaleDateString('fr-FR', {
+  return new Date(y!, m! - 1, d!).toLocaleDateString(intlLocale, {
     day: 'numeric',
     month: 'short',
   });
@@ -100,11 +119,11 @@ export function dayLabel(iso: string): string {
 export function monthLabel(iso: string): string {
   const [y, m] = iso.split('-').map(Number);
   return new Date(y!, m! - 1, 1)
-    .toLocaleDateString('fr-FR', { month: 'short' })
+    .toLocaleDateString(intlLocale, { month: 'short' })
     .replace('.', '');
 }
 
 /** Nom affichable d'un client, avec repli sur l'e-mail puis un libellé neutre. */
 export function customerLabel(name: string | null, email: string | null): string {
-  return name ?? email?.split('@')[0] ?? 'Client';
+  return name ?? email?.split('@')[0] ?? t('customer');
 }

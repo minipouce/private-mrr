@@ -3,6 +3,7 @@ import { Text, StyleSheet, View } from 'react-native';
 import { Tabs } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, type } from '../../src/theme/index';
+import { t } from '../../src/i18n';
 
 /**
  * Icônes typographiques plutôt qu'une bibliothèque d'icônes : moins de poids
@@ -39,21 +40,21 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Tableau de bord',
+          title: t('tabDashboard'),
           tabBarIcon: ({ focused }) => <TabIcon glyph="◈" focused={focused} />,
         }}
       />
       <Tabs.Screen
         name="activity"
         options={{
-          title: 'Activité',
+          title: t('tabActivity'),
           tabBarIcon: ({ focused }) => <TabIcon glyph="≡" focused={focused} />,
         }}
       />
       <Tabs.Screen
         name="settings"
         options={{
-          title: 'Réglages',
+          title: t('tabSettings'),
           tabBarIcon: ({ focused }) => <TabIcon glyph="⚙" focused={focused} />,
         }}
       />

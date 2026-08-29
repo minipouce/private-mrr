@@ -6,6 +6,7 @@ import { router } from 'expo-router';
 import { api } from '../api/client';
 import { loadConfig } from '../api/config';
 import { refreshWidget } from '../widget/refresh';
+import { t } from '../i18n';
 
 // Une notification reçue app ouverte doit rester visible : sans cela, un
 // paiement qui tombe pendant la consultation passe totalement inaperçu.
@@ -80,7 +81,7 @@ export function usePush() {
 
       if (!granted) {
         setStatus('denied');
-        setError('Notifications refusées dans les réglages Android');
+        setError(t('pushDeniedSettings'));
         return false;
       }
 
@@ -93,7 +94,7 @@ export function usePush() {
       const config = await loadConfig();
       if (!config) {
         setStatus('error');
-        setError('Configure le serveur avant les notifications');
+        setError(t('pushConfigureFirst'));
         return false;
       }
 
@@ -113,7 +114,7 @@ export function usePush() {
       setStatus(isMissingPlayServices ? 'unsupported' : 'error');
       setError(
         isMissingPlayServices
-          ? 'Google Play Services est requis pour recevoir des notifications'
+          ? t('pushDevicePhysical')
           : message,
       );
       return false;

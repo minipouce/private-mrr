@@ -8,6 +8,7 @@ import { connectStream, type SseConnection } from '../api/sse';
 import { loadConfig } from '../api/config';
 import type { Overview, RevenueEvent } from '../api/types';
 import { refreshWidget } from '../widget/refresh';
+import { t } from '../i18n';
 
 type Status = 'loading' | 'live' | 'offline' | 'unconfigured' | 'error';
 
@@ -55,7 +56,7 @@ export function LiveProvider({ children }: { children: React.ReactNode }) {
       void refreshWidget();
     } catch (err) {
       if (!mountedRef.current) return;
-      const message = err instanceof ApiError ? err.message : 'Erreur inattendue';
+      const message = err instanceof ApiError ? err.message : t('unexpectedError');
       setError(message);
       setStatus(err instanceof ApiError && err.status === 0 ? 'offline' : 'error');
     }
@@ -76,7 +77,7 @@ export function LiveProvider({ children }: { children: React.ReactNode }) {
       },
       onError: (message) => {
         if (!mountedRef.current) return;
-        setStatus(message === 'Jeton refusé' ? 'error' : 'offline');
+        setStatus(message === t('tokenRejected') ? 'error' : 'offline');
         setError(message);
       },
       onEvent: (type, data) => {

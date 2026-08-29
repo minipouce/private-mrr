@@ -3,6 +3,7 @@ import { View, Text, StyleSheet } from 'react-native';
 import { colors, radius, space, type } from '../theme';
 import { money, moneyCompact } from '../lib/format';
 import type { GoalProgress } from '../api/types';
+import { t } from '../i18n';
 
 /**
  * Avancement vers un objectif de revenu.
@@ -30,7 +31,7 @@ export function GoalBar({
       <View style={styles.head}>
         <Text style={[styles.label, compact && styles.labelCompact]}>
           {reached ? '🎯 ' : ''}
-          {goal.kind.toUpperCase()} · objectif {moneyCompact(goal.targetCents, currency)}
+          {goal.kind.toUpperCase()} · {t('goalTarget')} {moneyCompact(goal.targetCents, currency)}
         </Text>
         <Text style={[styles.percent, { color: tint }, compact && styles.percentCompact]}>
           {goal.percent.toFixed(0)} %
@@ -44,8 +45,8 @@ export function GoalBar({
       {!compact && (
         <Text style={styles.remaining}>
           {reached
-            ? `Objectif dépassé de ${money(goal.currentCents - goal.targetCents, currency)}`
-            : `Encore ${money(goal.remainingCents, currency)} à atteindre`}
+            ? t('goalExceededBy', { amount: money(goal.currentCents - goal.targetCents, currency) })
+            : t('goalRemaining', { amount: money(goal.remainingCents, currency) })}
         </Text>
       )}
     </View>

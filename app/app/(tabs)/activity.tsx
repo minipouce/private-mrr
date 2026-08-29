@@ -10,13 +10,14 @@ import { EventRow } from '../../src/components/EventRow';
 import { LiveBadge } from '../../src/components/LiveBadge';
 import { EmptyState } from '../../src/components/ui';
 import type { EventKind, RevenueEvent } from '../../src/api/types';
+import { t } from '../../src/i18n';
 
-const FILTERS: { id: string; label: string; kinds?: EventKind[] }[] = [
-  { id: 'all', label: 'Tout' },
-  { id: 'cash', label: 'Paiements', kinds: ['payment'] },
-  { id: 'new', label: 'Nouveaux', kinds: ['subscription_created', 'trial_started'] },
-  { id: 'churn', label: 'Annulations', kinds: ['subscription_canceled'] },
-  { id: 'issues', label: 'Incidents', kinds: ['payment_failed', 'refund'] },
+const FILTERS: { id: string; label: keyof typeof import('../../src/i18n/strings').en; kinds?: EventKind[] }[] = [
+  { id: 'all', label: 'filterAll' as const },
+  { id: 'cash', label: 'filterPayments' as const, kinds: ['payment'] },
+  { id: 'new', label: 'filterNew' as const, kinds: ['subscription_created', 'trial_started'] },
+  { id: 'churn', label: 'filterCancellations' as const, kinds: ['subscription_canceled'] },
+  { id: 'issues', label: 'filterIssues' as const, kinds: ['payment_failed', 'refund'] },
 ];
 
 export default function Activity() {
@@ -78,7 +79,7 @@ export default function Activity() {
   return (
     <View style={[styles.screen, { paddingTop: insets.top + space.md }]}>
       <View style={styles.header}>
-        <Text style={styles.title}>Activité</Text>
+        <Text style={styles.title}>{t('activity')}</Text>
         <LiveBadge status={status} />
       </View>
 
@@ -91,7 +92,7 @@ export default function Activity() {
               onPress={() => setFilter(item.id)}
               style={[styles.chip, active && styles.chipActive]}
             >
-              <Text style={[styles.chipText, active && styles.chipTextActive]}>{item.label}</Text>
+              <Text style={[styles.chipText, active && styles.chipTextActive]}>{t(item.label)}</Text>
             </Pressable>
           );
         })}
@@ -117,15 +118,15 @@ export default function Activity() {
         onEndReachedThreshold={0.6}
         ListEmptyComponent={
           <EmptyState
-            title="Aucun événement"
-            hint={filter === 'all' ? undefined : 'Essaie un autre filtre.'}
+            title={t('noEvents')}
+            hint={filter === 'all' ? undefined : t('tryAnotherFilter')}
           />
         }
         ListFooterComponent={
           loadingMore ? (
             <ActivityIndicator color={colors.accent} style={{ marginVertical: space.lg }} />
           ) : exhausted && visible.length > 0 ? (
-            <Text style={styles.end}>Fin de l'historique</Text>
+            <Text style={styles.end}>{t('endOfHistory')}</Text>
           ) : null
         }
       />

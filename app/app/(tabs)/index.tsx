@@ -17,6 +17,7 @@ import { EventRow } from '../../src/components/EventRow';
 import { Card, SectionTitle, Stat, EmptyState } from '../../src/components/ui';
 import { GoalBar } from '../../src/components/GoalBar';
 import type { DailyPoint, MonthlyPoint } from '../../src/api/types';
+import { t, plural } from '../../src/i18n';
 
 export default function Dashboard() {
   const { overview, events, status, error, flashId, refresh } = useLive();
@@ -60,22 +61,22 @@ export default function Dashboard() {
           <ActivityIndicator color={colors.accent} />
         ) : (
           <EmptyState
-            title={error ?? 'Aucune donnée'}
-            hint="Tire vers le bas pour réessayer, ou vérifie les réglages du serveur."
+            title={error ?? t('noData')}
+            hint={t('pullToRetry')}
           />
         )}
       </View>
     );
   }
 
-  const t = overview.total;
+  const m = overview.total;
   // L'aperçu porte l'indicateur de logo par projet ; les lignes d'activité s'y réfèrent.
   const logoByProject = new Map(
     overview.projects.map((p) => [p.projectId ?? '', p.hasLogo ?? false]),
   );
   const chartWidth = width - space.lg * 2 - space.lg * 2;
-  const totalMrr = Math.max(t.mrrCents, 1);
-  const movement = t.movement;
+  const totalMrr = Math.max(m.mrrCents, 1);
+  const movement = m.movement;
 
   return (
     <ScrollView
@@ -91,9 +92,9 @@ export default function Dashboard() {
     >
       <View style={styles.topBar}>
         <View>
-          <Text style={styles.eyebrow}>REVENUS CONSOLIDÉS</Text>
+          <Text style={styles.eyebrow}>{t('consolidatedRevenue')}</Text>
           <Text style={styles.projectCount}>
-            {overview.projects.length} projet{overview.projects.length > 1 ? 's' : ''}
+            {overview.projects.length} {plural(overview.projects.length, 'project', 'projects')}
           </Text>
         </View>
         <LiveBadge status={status} />
@@ -102,12 +103,12 @@ export default function Dashboard() {
       {/* Hero : le MRR est le chiffre que l'on vient chercher en premier. */}
       <View style={styles.hero}>
         <Text style={styles.heroValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.5}>
-          {money(t.mrrCents, t.currency)}
+          {money(m.mrrCents, m.currency)}
         </Text>
         <View style={styles.heroMeta}>
           <Text style={styles.heroLabel}>MRR</Text>
           <View style={styles.heroSep} />
-          <Text style={styles.heroLabel}>{money(t.arrCents, t.currency)} ARR</Text>
+          <Text style={styles.heroLabel}>{money(m.arrCents, m.currency)} ARR</Text>
           {movement.netCents !== 0 && (
             <>
               <View style={styles.heroSep} />
@@ -117,28 +118,28 @@ export default function Dashboard() {
                   { color: movement.netCents > 0 ? colors.positive : colors.negative },
                 ]}
               >
-                {signed(movement.netCents, t.currency)} ce mois
+                {signed(movement.netCents, m.currency)} {t('thisMonth').toLowerCase()}
               </Text>
             </>
           )}
         </View>
       </View>
 
-      {t.goal && (
+      {m.goal && (
         <Card style={styles.goalCard}>
-          <GoalBar goal={t.goal} currency={t.currency} />
+          <GoalBar goal={m.goal} currency={m.currency} />
         </Card>
       )}
 
       <Card style={styles.chartCard}>
         <View style={styles.chartHead}>
           <View>
-            <Text style={styles.chartValue}>{money(t.last30Cents, t.currency)}</Text>
-            <Text style={styles.chartLabel}>encaissé sur 30 jours</Text>
+            <Text style={styles.chartValue}>{money(m.last30Cents, m.currency)}</Text>
+            <Text style={styles.chartLabel}>{t('collectedOver30Days')}</Text>
           </View>
           <View style={styles.todayBox}>
-            <Text style={styles.todayValue}>{money(t.todayCents, t.currency)}</Text>
-            <Text style={styles.chartLabel}>aujourd'hui</Text>
+            <Text style={styles.todayValue}>{money(m.todayCents, m.currency)}</Text>
+            <Text style={styles.chartLabel}>{t('today')}</Text>
           </View>
         </View>
         <Chart values={daily.map((d) => d.cents)} width={chartWidth} height={120} baseline />
@@ -147,13 +148,13 @@ export default function Dashboard() {
       <View style={styles.statRow}>
         <Card style={styles.statCard}>
           <Stat
-            label="Ce mois"
-            value={moneyCompact(t.mtdCents, t.currency)}
-            hint={t.mtdVsPrevPct !== null ? `${percent(t.mtdVsPrevPct)} vs M-1` : 'premier mois'}
+            label={t('thisMonth')}
+            value={moneyCompact(m.mtdCents, m.currency)}
+            hint={m.mtdVsPrevPct !== null ? `${percent(m.mtdVsPrevPct)} ${t('vsPrevMonth')}` : t('firstMonth')}
             hintColor={
-              t.mtdVsPrevPct === null
+              m.mtdVsPrevPct === null
                 ? undefined
-                : t.mtdVsPrevPct >= 0
+                : m.mtdVsPrevPct >= 0
                   ? colors.positive
                   : colors.negative
             }
@@ -161,68 +162,68 @@ export default function Dashboard() {
         </Card>
         <Card style={styles.statCard}>
           <Stat
-            label="Depuis janvier"
-            value={moneyCompact(t.ytdCents, t.currency)}
-            hint={`${t.activeSubscribers} abonnés actifs`}
+            label={t('sinceJanuary')}
+            value={moneyCompact(m.ytdCents, m.currency)}
+            hint={`${m.activeSubscribers} ${t('activeSubscribers')}`}
           />
         </Card>
       </View>
 
       <Card style={styles.projectionCard}>
         <View style={styles.projectionHead}>
-          <Text style={styles.projectionLabel}>PROJECTION FIN {new Date().getFullYear()}</Text>
-          <Text style={styles.projectionHint}>estimation</Text>
+          <Text style={styles.projectionLabel}>{t('projectionEndOf')} {new Date().getFullYear()}</Text>
+          <Text style={styles.projectionHint}>{t('estimate')}</Text>
         </View>
         <Text style={styles.projectionValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
-          {money(t.projection.projectedYearEndCents, t.currency)}
+          {money(m.projection.projectedYearEndCents, m.currency)}
         </Text>
         <View style={styles.projectionBreak}>
           <View style={styles.projectionItem}>
-            <Text style={styles.projectionItemValue}>{moneyCompact(t.projection.ytdCents, t.currency)}</Text>
-            <Text style={styles.projectionItemLabel}>déjà encaissé</Text>
+            <Text style={styles.projectionItemValue}>{moneyCompact(m.projection.ytdCents, m.currency)}</Text>
+            <Text style={styles.projectionItemLabel}>{t('alreadyCollected')}</Text>
           </View>
           <View style={styles.projectionItem}>
             <Text style={styles.projectionItemValue}>
-              {moneyCompact(t.projection.projectedRecurringCents, t.currency)}
+              {moneyCompact(m.projection.projectedRecurringCents, m.currency)}
             </Text>
-            <Text style={styles.projectionItemLabel}>récurrent à venir</Text>
+            <Text style={styles.projectionItemLabel}>{t('recurringAhead')}</Text>
           </View>
           <View style={styles.projectionItem}>
             <Text style={styles.projectionItemValue}>
-              {moneyCompact(t.projection.projectedOneOffCents, t.currency)}
+              {moneyCompact(m.projection.projectedOneOffCents, m.currency)}
             </Text>
-            <Text style={styles.projectionItemLabel}>ponctuel estimé</Text>
+            <Text style={styles.projectionItemLabel}>{t('oneOffEstimate')}</Text>
           </View>
         </View>
       </Card>
 
-      <SectionTitle>Mouvement du MRR</SectionTitle>
+      <SectionTitle>{t('mrrMovement')}</SectionTitle>
       <Card>
         <View style={styles.movementGrid}>
-          <MovementCell label="Nouveaux" cents={movement.newMrrCents} currency={t.currency} tone="positive" />
-          <MovementCell label="Expansion" cents={movement.expansionCents} currency={t.currency} tone="positive" />
-          <MovementCell label="Contraction" cents={movement.contractionCents} currency={t.currency} tone="negative" />
-          <MovementCell label="Churn" cents={movement.churnedCents} currency={t.currency} tone="negative" />
+          <MovementCell label={t('newCustomers')} cents={movement.newMrrCents} currency={m.currency} tone="positive" />
+          <MovementCell label={t('expansion')} cents={movement.expansionCents} currency={m.currency} tone="positive" />
+          <MovementCell label={t('contraction')} cents={movement.contractionCents} currency={m.currency} tone="negative" />
+          <MovementCell label={t('churn')} cents={movement.churnedCents} currency={m.currency} tone="negative" />
         </View>
         <View style={styles.netRow}>
-          <Text style={styles.netLabel}>Net ce mois</Text>
+          <Text style={styles.netLabel}>{t('netThisMonth')}</Text>
           <Text
             style={[
               styles.netValue,
               { color: movement.netCents >= 0 ? colors.positive : colors.negative },
             ]}
           >
-            {signed(movement.netCents, t.currency)}
+            {signed(movement.netCents, m.currency)}
           </Text>
         </View>
       </Card>
 
-      <SectionTitle>6 derniers mois</SectionTitle>
+      <SectionTitle>{t('lastSixMonths')}</SectionTitle>
       <Card>
-        <Bars data={monthly} currency={t.currency} />
+        <Bars data={monthly} currency={m.currency} />
       </Card>
 
-      <SectionTitle>Projets</SectionTitle>
+      <SectionTitle>{t('projectsSection')}</SectionTitle>
       <View style={styles.projects}>
         {[...overview.projects]
           .sort((a, b) => b.mrrCents - a.mrrCents)
@@ -236,20 +237,20 @@ export default function Dashboard() {
           ))}
       </View>
 
-      <SectionTitle action={{ label: 'Tout voir', onPress: () => router.push('/activity') }}>
-        Dernière activité
+      <SectionTitle action={{ label: t('seeAll'), onPress: () => router.push('/activity') }}>
+        {t('recentActivity')}
       </SectionTitle>
       <Card padded={false} style={styles.feed}>
         {events.slice(0, 6).map((event) => (
           <EventRow
             key={event.id}
             event={event}
-            currency={t.currency}
+            currency={m.currency}
             flash={event.id === flashId}
             projectHasLogo={logoByProject.get(event.project_id) ?? false}
           />
         ))}
-        {events.length === 0 && <EmptyState title="Aucun événement pour l'instant" />}
+        {events.length === 0 && <EmptyState title={t('noEventsYet')} />}
       </Card>
     </ScrollView>
   );

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, TextInput, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
 import { colors, radius, space, type } from '../theme';
+import { t } from '../i18n';
 
 /**
  * Saisie d'un objectif de revenu.
@@ -55,7 +56,7 @@ export function GoalEditor({
             style={styles.input}
             value={text}
             onChangeText={(v) => setText(v.replace(/[^0-9]/g, ''))}
-            placeholder="aucun"
+            placeholder={t('none')}
             placeholderTextColor={colors.textFaint}
             keyboardType="number-pad"
             inputMode="numeric"

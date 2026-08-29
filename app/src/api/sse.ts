@@ -1,4 +1,5 @@
 import { loadConfig } from './config';
+import { t } from '../i18n';
 
 /**
  * Client SSE minimal bâti sur XMLHttpRequest.
@@ -52,7 +53,7 @@ export function connectStream(handlers: SseHandlers): SseConnection {
 
     const config = await loadConfig();
     if (!config) {
-      handlers.onError?.('Serveur non configuré');
+      handlers.onError?.(t('serverNotConfigured'));
       return;
     }
 
@@ -147,11 +148,11 @@ export function connectStream(handlers: SseHandlers): SseConnection {
     if (closed) return;
 
     if (unauthorized) {
-      handlers.onError?.('Jeton refusé');
+      handlers.onError?.(t('tokenRejected'));
       return; // inutile de réessayer avec un jeton invalide
     }
 
-    handlers.onError?.('Connexion perdue');
+    handlers.onError?.(t('connectionLost'));
     if (retryTimer) clearTimeout(retryTimer);
     retryTimer = setTimeout(start, retryDelay);
     // Repli exponentiel plafonné : évite de marteler un serveur en panne.

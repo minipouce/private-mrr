@@ -1,6 +1,8 @@
 /**
  * Rejoue un vrai encaissement Stripe sous forme de webhook signé.
  *
+ *   npm run replay -- <identifiant-projet>
+ *
  * Récupère une facture réelle du compte, en retire la trace locale, puis
  * réémet `invoice.paid` et `charge.succeeded` exactement comme Stripe le ferait.
  * Valide donc le chemin d'ingestion sur des charges utiles authentiques, et
@@ -11,9 +13,27 @@ import Stripe from 'stripe';
 import { createHmac } from 'node:crypto';
 import Database from 'better-sqlite3';
 
-const key = process.env.PROJECT_BUSKA_STRIPE_KEY!;
-const secret = process.env.PROJECT_BUSKA_WEBHOOK_SECRET!;
-const url = 'http://127.0.0.1:8791/webhooks/stripe/buska';
+const projectId = process.argv[2] ?? (process.env.PROJECTS ?? '').split(',')[0]?.trim();
+if (!projectId) {
+  console.error('Usage : npm run replay -- <identifiant-projet>');
+  process.exit(1);
+}
+
+const prefix = `PROJECT_${projectId.toUpperCase().replace(/[^A-Z0-9]+/g, '_')}`;
+function required(name: string): string {
+  const value = process.env[name];
+  if (!value) {
+    console.error(`Variable manquante : ${name}`);
+    process.exit(1);
+  }
+  return value;
+}
+
+const key = required(`${prefix}_STRIPE_KEY`);
+const secret = required(`${prefix}_WEBHOOK_SECRET`);
+
+const port = process.env.PORT ?? '8791';
+const url = `http://127.0.0.1:${port}/webhooks/stripe/${projectId}`;
 const stripe = new Stripe(key, { maxNetworkRetries: 2 });
 
 function post(type: string, object: unknown) {

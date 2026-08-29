@@ -11,7 +11,34 @@ const path = require('path');
 
 const GOOGLE_SERVICES = 'google-services.json';
 
-module.exports = ({ config }) => {
+/**
+ * Identité de l'application, surchargeable par l'environnement.
+ *
+ * Une personne qui reprend ce projet a besoin de son propre nom de paquet, de
+ * son propre projet Firebase et de son propre compte Expo. Les valeurs de
+ * `app.json` restent celles de l'auteur ; ces variables permettent de les
+ * remplacer sans modifier le dépôt.
+ */
+function identity(config) {
+  const pkg = process.env.APP_PACKAGE?.trim();
+  const owner = process.env.EAS_OWNER?.trim();
+  const projectId = process.env.EAS_PROJECT_ID?.trim();
+
+  return {
+    ...config,
+    ...(owner ? { owner } : {}),
+    android: { ...config.android, ...(pkg ? { package: pkg } : {}) },
+    extra: {
+      ...config.extra,
+      ...(projectId
+        ? { eas: { ...(config.extra?.eas ?? {}), projectId } }
+        : {}),
+    },
+  };
+}
+
+module.exports = ({ config: rawConfig }) => {
+  const config = identity(rawConfig);
   const absolute = path.join(__dirname, GOOGLE_SERVICES);
 
   if (!fs.existsSync(absolute)) {
