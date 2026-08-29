@@ -18,21 +18,21 @@ const [, , id, name, colorArg] = process.argv;
 const envPath = resolve(process.env.ENV_FILE ?? '.env');
 
 if (!id || !name) {
-  console.error('Usage : node scripts/add-project.mjs <identifiant> "<Nom affiché>" [couleur]');
-  console.error('Exemple : node scripts/add-project.mjs saas-a "SaaS A"');
+  console.error('Usage: node scripts/add-project.mjs <id> "<Display Name>" [colour]');
+  console.error('Example: node scripts/add-project.mjs saas-a "SaaS A"');
   process.exit(1);
 }
 
 if (!/^[a-z0-9][a-z0-9-]*$/.test(id)) {
   console.error(
-    `Identifiant invalide : « ${id} ».\n` +
-      'Minuscules, chiffres et tirets uniquement — il apparaît dans l\'URL du webhook.',
+    `Invalid id: "${id}".\n` +
+      'Lowercase letters, digits and hyphens only. It appears in the webhook URL.',
   );
   process.exit(1);
 }
 
 if (!existsSync(envPath)) {
-  console.error(`${envPath} introuvable. Copie d'abord .env.example.`);
+  console.error(`${envPath} not found. Copy .env.example first.`);
   process.exit(1);
 }
 
@@ -40,7 +40,7 @@ let env = readFileSync(envPath, 'utf8');
 const prefix = `PROJECT_${id.toUpperCase().replace(/[^A-Z0-9]+/g, '_')}`;
 
 if (env.includes(`${prefix}_STRIPE_KEY`)) {
-  console.error(`Le projet « ${id} » est déjà déclaré.`);
+  console.error(`Project "${id}" is already declared.`);
   process.exit(1);
 }
 
@@ -48,7 +48,7 @@ if (env.includes(`${prefix}_STRIPE_KEY`)) {
 const match = env.match(/^PROJECTS=(.*)$/m);
 const existing = (match?.[1] ?? '').split(',').map((s) => s.trim()).filter(Boolean);
 if (existing.includes(id)) {
-  console.error(`« ${id} » figure déjà dans PROJECTS.`);
+  console.error(`"${id}" is already listed in PROJECTS.`);
   process.exit(1);
 }
 const updated = [...existing, id];
@@ -69,8 +69,8 @@ ${prefix}_COLOR="${color}"
 
 writeFileSync(envPath, env, { mode: 0o600 });
 
-console.log(`✓ ${name} ajouté (${id})`);
-console.log(`  À compléter dans ${envPath} :`);
+console.log(`✓ ${name} added (${id})`);
+console.log(`  Fill in ${envPath}:`);
 console.log(`    ${prefix}_STRIPE_KEY=rk_live_…`);
-console.log(`    ${prefix}_WEBHOOK_SECRET=whsec_…   (plus tard)`);
-console.log(`  URL du webhook : https://TON_DOMAINE/webhooks/stripe/${id}`);
+console.log(`    ${prefix}_WEBHOOK_SECRET=whsec_…   (later)`);
+console.log(`  Webhook URL: https://YOUR_DOMAIN/webhooks/stripe/${id}`);

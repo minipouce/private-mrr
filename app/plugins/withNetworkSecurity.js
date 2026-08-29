@@ -50,8 +50,8 @@ module.exports = function withNetworkSecurity(config) {
 
   if (extra.length > 0) {
     console.warn(
-      `\n  HTTP en clair autorisé vers : ${extra.join(', ')}` +
-        `\n  À retirer de app.json (extra.devCleartextHosts) avant tout usage hors réseau local.\n`,
+      `\n  Cleartext HTTP allowed to: ${extra.join(', ')}` +
+        `\n  Remove from app.json (extra.devCleartextHosts) before any use outside a local network.\n`,
     );
   }
 

@@ -12,7 +12,7 @@ const n = await syncAllLogos(config.projects);
 
 console.log('');
 for (const p of config.projects) {
-  console.log(`  ${p.id.padEnd(12)} ${hasLogo(p.id) ? '✓ logo' : '— aucun'}`);
+  console.log(`  ${p.id.padEnd(12)} ${hasLogo(p.id) ? '✓ logo' : '- none'}`);
 }
-console.log(`\n  ${n} logo(s) récupéré(s) sur ${config.projects.length} projets`);
+console.log(`\n  ${n} logo(s) fetched across ${config.projects.length} projects`);
 db.close();

@@ -6,24 +6,24 @@
  */
 import { sendToDevice, isConfigured, fcmProjectId } from '../push/fcm.js';
 
-console.log('configuré :', isConfigured());
-console.log('projet    :', fcmProjectId());
+console.log('configured :', isConfigured());
+console.log('project    :', fcmProjectId());
 
 const target = process.argv[2];
 
 if (!target) {
   console.log(
-    "\nEnvoi vers un jeton volontairement invalide.\n" +
-      "Un rejet pour « jeton invalide » prouve que l'authentification OAuth2 a abouti ;\n" +
-      "une erreur 401/403 signalerait une clé refusée ou l'API FCM désactivée.\n",
+    '\nSending to a deliberately invalid token.\n' +
+      'A rejection for "invalid token" proves OAuth2 authentication succeeded;\n' +
+      'a 401 or 403 would mean a refused key or a disabled FCM API.\n',
   );
 }
 
 const result = await sendToDevice({
   token: target ?? 'jeton_de_test_volontairement_invalide',
-  title: target ? '✅ Test direct FCM' : 'Test',
+  title: target ? '✅ Direct FCM test' : 'Test',
   body: target
-    ? 'Envoyé depuis ton serveur, sans intermédiaire.'
+    ? 'Sent from your server, with no intermediary.'
     : 'Test',
 });
 

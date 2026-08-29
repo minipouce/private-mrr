@@ -43,8 +43,8 @@ module.exports = ({ config: rawConfig }) => {
 
   if (!fs.existsSync(absolute)) {
     console.warn(
-      `\n  ${GOOGLE_SERVICES} absent — build sans notifications push.` +
-        `\n  Voir README, section « Notifications push ».\n`,
+      `\n  ${GOOGLE_SERVICES} not found. Building without push notifications.` +
+        `\n  See the README, "Firebase, for notifications".\n`,
     );
     return config;
   }
@@ -61,14 +61,14 @@ module.exports = ({ config: rawConfig }) => {
 
     if (declared && packages.length > 0 && !packages.includes(declared)) {
       throw new Error(
-        `google-services.json déclare [${packages.join(', ')}] ` +
-          `mais app.json attend « ${declared} ». ` +
-          `Recrée l'application Android dans Firebase avec le bon nom de paquet.`,
+        `google-services.json declares [${packages.join(', ')}] ` +
+          `but app.json expects "${declared}". ` +
+          `Re-create the Android app in Firebase with the matching package name.`,
       );
     }
   } catch (err) {
     if (err instanceof SyntaxError) {
-      throw new Error(`${GOOGLE_SERVICES} n'est pas un JSON valide.`);
+      throw new Error(`${GOOGLE_SERVICES} is not valid JSON.`);
     }
     throw err;
   }

@@ -65,7 +65,7 @@ export async function syncLogo(project: ProjectConfig): Promise<boolean> {
     };
     if (!file.url) return false;
     if (file.size && file.size > MAX_BYTES) {
-      console.warn(`[branding] ${project.id} : logo trop volumineux (${file.size} o), ignoré`);
+      console.warn(`[branding] ${project.id}: logo too large (${file.size} bytes), skipped`);
       return false;
     }
 
@@ -88,13 +88,13 @@ export async function syncLogo(project: ProjectConfig): Promise<boolean> {
       project.id,
     );
 
-    console.log(`[branding] ${project.id} : logo récupéré (${sniffImageType(buf)}, ${buf.length} o)`);
+    console.log(`[branding] ${project.id}: logo fetched (${sniffImageType(buf)}, ${buf.length} bytes)`);
     return true;
   } catch (err) {
     const message = (err as Error).message;
     // Une clé sans permission Account est un cas de figure normal, pas une panne.
     if (!/permission/i.test(message)) {
-      console.warn(`[branding] ${project.id} : ${message.slice(0, 100)}`);
+      console.warn(`[branding] ${project.id}: ${message.slice(0, 100)}`);
     }
     return false;
   }

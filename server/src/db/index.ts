@@ -40,7 +40,7 @@ function migrate(db: Database.Database): void {
   );
   if (!columns.includes('payment_intent')) {
     db.exec('ALTER TABLE events ADD COLUMN payment_intent TEXT');
-    console.log('[db] migration : colonne payment_intent ajoutée');
+    console.log('[db] migration: payment_intent column added');
   }
 
   const projectColumns = (
@@ -48,20 +48,20 @@ function migrate(db: Database.Database): void {
   ).map((c) => c.name);
   if (projectColumns.length > 0 && !projectColumns.includes('include_in_totals')) {
     db.exec('ALTER TABLE projects ADD COLUMN include_in_totals INTEGER NOT NULL DEFAULT 1');
-    console.log('[db] migration : colonne include_in_totals ajoutée');
+    console.log('[db] migration: include_in_totals column added');
   }
   if (projectColumns.length > 0 && !projectColumns.includes('logo_updated_at')) {
     db.exec('ALTER TABLE projects ADD COLUMN logo_updated_at INTEGER');
-    console.log('[db] migration : colonne logo_updated_at ajoutée');
+    console.log('[db] migration: logo_updated_at column added');
   }
   if (projectColumns.length > 0 && !projectColumns.includes('goal_cents')) {
     db.exec('ALTER TABLE projects ADD COLUMN goal_cents INTEGER');
     db.exec("ALTER TABLE projects ADD COLUMN goal_kind TEXT NOT NULL DEFAULT 'mrr'");
-    console.log('[db] migration : colonnes d objectif ajoutées');
+    console.log('[db] migration: goal columns added');
   }
   if (!columns.includes('billing_reason')) {
     db.exec('ALTER TABLE events ADD COLUMN billing_reason TEXT');
-    console.log('[db] migration : colonne billing_reason ajoutée');
+    console.log('[db] migration: billing_reason column added');
   }
 }
 

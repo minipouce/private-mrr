@@ -66,7 +66,7 @@ function reset(): void {
     DELETE FROM notification_prefs;
     DELETE FROM projects;
   `);
-  console.log('Tables vidées.');
+  console.log('Tables cleared.');
 }
 
 function seedProjects(): void {
@@ -373,12 +373,12 @@ let total = 0;
 for (const project of DEMO_PROJECTS) {
   const n = seedProject(project);
   total += n;
-  console.log(`${project.name.padEnd(12)} ${String(n).padStart(6)} événements`);
+  console.log(`${project.name.padEnd(12)} ${String(n).padStart(6)} events`);
 }
 
 const mrr = db
   .prepare(`SELECT COALESCE(SUM(mrr_base_cents),0) AS m FROM subscriptions WHERE status = 'active'`)
   .get() as { m: number };
 
-console.log(`\n${total} événements générés · MRR total ${(mrr.m / 100).toFixed(0)} €`);
+console.log(`\n${total} events generated · total MRR ${(mrr.m / 100).toFixed(0)} EUR`);
 db.close();

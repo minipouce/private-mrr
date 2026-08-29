@@ -36,7 +36,7 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
-    "keystore": "keytool -genkeypair -v -keystore credentials/release.keystore -alias privatemrr -keyalg RSA -keysize 4096 -validity 10950 -storepass ${MRR_KEYSTORE_PASSWORD:-privatemrr-local} -keypass ${MRR_KEYSTORE_PASSWORD:-privatemrr-local} -dname \"CN=Private MRR, OU=Perso, O=Perso, C=FR\"",
+    "keystore": "mkdir -p credentials && keytool -genkeypair -v -keystore credentials/release.keystore -alias privatemrr -keyalg RSA -keysize 4096 -validity 10950 -storepass ${MRR_KEYSTORE_PASSWORD:-privatemrr-local} -keypass ${MRR_KEYSTORE_PASSWORD:-privatemrr-local} -dname \"CN=Private MRR, OU=Personal, O=Personal, C=FR\"",
     "prebuild": "expo prebuild --platform android --clean && node scripts/configure-signing.mjs",
     "apk": "node scripts/configure-signing.mjs && cd android && ./gradlew assembleRelease",
     "apk:install": "adb install -r android/app/build/outputs/apk/release/app-release.apk",

@@ -15,7 +15,7 @@ import Database from 'better-sqlite3';
 
 const projectId = process.argv[2] ?? (process.env.PROJECTS ?? '').split(',')[0]?.trim();
 if (!projectId) {
-  console.error('Usage : npm run replay -- <identifiant-projet>');
+  console.error('Usage: npm run replay -- <project-id>');
   process.exit(1);
 }
 
@@ -23,7 +23,7 @@ const prefix = `PROJECT_${projectId.toUpperCase().replace(/[^A-Z0-9]+/g, '_')}`;
 function required(name: string): string {
   const value = process.env[name];
   if (!value) {
-    console.error(`Variable manquante : ${name}`);
+    console.error(`Missing variable: ${name}`);
     process.exit(1);
   }
   return value;
@@ -58,10 +58,10 @@ const invoice = (await stripe.invoices.list({ status: 'paid', limit: 1, expand: 
 const raw = invoice as any;
 const intent = raw.payments?.data?.[0]?.payment?.payment_intent as string | undefined;
 
-console.log('Facture réelle choisie :', invoice.id);
-console.log('  montant       :', (invoice.amount_paid / 100).toFixed(2), invoice.currency);
-console.log('  abonnement    :', raw.parent?.subscription_details?.subscription ?? 'aucun');
-console.log('  payment intent:', intent ?? 'aucun');
+console.log('Real invoice selected:', invoice.id);
+console.log('  amount        :', (invoice.amount_paid / 100).toFixed(2), invoice.currency);
+console.log('  subscription  :', raw.parent?.subscription_details?.subscription ?? 'aucun');
+console.log('  payment intent:', intent ?? 'none');
 
 // La charge correspondante, telle que Stripe l'enverrait.
 let charge: Stripe.Charge | undefined;
@@ -70,14 +70,14 @@ if (intent) {
     if ((c as any).payment_intent === intent && c.paid && c.status === 'succeeded') { charge = c; break; }
   }
 }
-console.log('  charge liée   :', charge?.id ?? 'aucune');
+console.log('  linked charge :', charge?.id ?? 'none');
 
 // On efface la trace laissée par le backfill pour repartir d'un état neutre.
 const db = new Database(process.env.DB_PATH ?? './data/real.db');
 const before = db.prepare("SELECT COUNT(*) n FROM events WHERE kind='payment'").get() as { n: number };
 db.prepare('DELETE FROM events WHERE payment_intent = ?').run(intent ?? '');
 const cleaned = db.prepare("SELECT COUNT(*) n FROM events WHERE kind='payment'").get() as { n: number };
-console.log(`\nPaiements en base : ${before.n} -> ${cleaned.n} (trace retirée)`);
+console.log(`\nPayments in database: ${before.n} -> ${cleaned.n} (existing row removed)`);
 db.close();
 
 console.log('\n--- 1. invoice.paid ---');
@@ -86,7 +86,7 @@ console.log('   HTTP', r1.status, await r1.text());
 await new Promise((r) => setTimeout(r, 2500));
 
 if (charge) {
-  console.log('--- 2. charge.succeeded (même encaissement) ---');
+  console.log('--- 2. charge.succeeded (same payment) ---');
   const r2 = await post('charge.succeeded', charge);
   console.log('   HTTP', r2.status, await r2.text());
   await new Promise((r) => setTimeout(r, 2500));
@@ -97,14 +97,14 @@ const after = db2.prepare("SELECT COUNT(*) n FROM events WHERE kind='payment'").
 const rows = db2
   .prepare("SELECT stripe_object_id, subscription_id, payment_intent, amount_base_cents FROM events WHERE payment_intent = ?")
   .all(intent ?? '') as any[];
-console.log(`\nPaiements en base : ${cleaned.n} -> ${after.n}`);
-console.log(`Lignes pour cet encaissement : ${rows.length}`);
+console.log(`\nPayments in database: ${cleaned.n} -> ${after.n}`);
+console.log(`Rows for this payment: ${rows.length}`);
 for (const r of rows) {
   console.log(`  ${r.stripe_object_id} | sub=${r.subscription_id ?? 'NULL'} | ${(r.amount_base_cents / 100).toFixed(2)} €`);
 }
 console.log(
   rows.length === 1
-    ? '\n✅ Un seul enregistrement : la déduplication fonctionne sur données réelles.'
-    : `\n❌ ${rows.length} enregistrements — déduplication en échec.`,
+    ? '\n✅ A single row: deduplication works on real data.'
+    : `\n❌ ${rows.length} rows: deduplication failed.`,
 );
 db2.close();

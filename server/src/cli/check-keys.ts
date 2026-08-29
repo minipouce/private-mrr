@@ -19,7 +19,7 @@ let failures = 0;
 for (const project of config.projects) {
   const stripe = stripeFor(project);
   if (!stripe) {
-    console.log(`  ${project.id.padEnd(12)} ⚠️  pas de clé`);
+    console.log(`  ${project.id.padEnd(12)} ⚠️  no key`);
     failures++;
     continue;
   }
@@ -35,11 +35,11 @@ for (const project of config.projects) {
   }
 
   if (missing.length === 0) {
-    console.log(`  ${project.id.padEnd(12)} ✓ les 4 permissions requises sont présentes`);
+    console.log(`  ${project.id.padEnd(12)} ✓ all 4 required permissions present`);
   } else {
-    console.log(`  ${project.id.padEnd(12)} ✗ manque : ${missing.join(', ')}`);
+    console.log(`  ${project.id.padEnd(12)} ✗ missing: ${missing.join(', ')}`);
     failures++;
   }
 }
 
-console.log(failures === 0 ? '\nToutes les clés sont exploitables.' : `\n${failures} clé(s) à corriger.`);
+console.log(failures === 0 ? '\nAll keys are usable.' : `\n${failures} key(s) need fixing.`);

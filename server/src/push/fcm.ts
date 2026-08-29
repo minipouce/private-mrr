@@ -41,7 +41,7 @@ function loadAccount(): ServiceAccount | null {
 
   if (!existsSync(path)) {
     console.warn(
-      `[fcm] clé de compte de service absente (${path}) — notifications désactivées`,
+      `[fcm] service account key not found (${path}); notifications disabled`,
     );
     return null;
   }
@@ -49,13 +49,13 @@ function loadAccount(): ServiceAccount | null {
   try {
     const parsed = JSON.parse(readFileSync(path, 'utf8')) as ServiceAccount;
     if (parsed.type !== 'service_account' || !parsed.private_key || !parsed.client_email) {
-      throw new Error('structure inattendue');
+      throw new Error('unexpected structure');
     }
     account = parsed;
-    console.log(`[fcm] compte de service chargé — projet ${parsed.project_id}`);
+    console.log(`[fcm] service account loaded, project ${parsed.project_id}`);
     return account;
   } catch (err) {
-    console.error(`[fcm] clé illisible : ${(err as Error).message}`);
+    console.error(`[fcm] unreadable key: ${(err as Error).message}`);
     return null;
   }
 }
@@ -113,7 +113,7 @@ async function accessToken(): Promise<string | null> {
   });
 
   if (!res.ok) {
-    throw new Error(`échange de jeton refusé (HTTP ${res.status}) : ${await res.text()}`);
+    throw new Error(`token exchange refused (HTTP ${res.status}): ${await res.text()}`);
   }
 
   const body = (await res.json()) as { access_token: string; expires_in: number };
@@ -143,7 +143,7 @@ export type SendOutcome =
 export async function sendToDevice(message: FcmMessage): Promise<SendOutcome> {
   const sa = loadAccount();
   if (!sa) {
-    return { ok: false, retryable: false, unregistered: false, message: 'FCM non configuré' };
+    return { ok: false, retryable: false, unregistered: false, message: 'FCM not configured' };
   }
 
   let token: string | null;
@@ -153,7 +153,7 @@ export async function sendToDevice(message: FcmMessage): Promise<SendOutcome> {
     return { ok: false, retryable: true, unregistered: false, message: (err as Error).message };
   }
   if (!token) {
-    return { ok: false, retryable: false, unregistered: false, message: 'jeton indisponible' };
+    return { ok: false, retryable: false, unregistered: false, message: 'token unavailable' };
   }
 
   const payload = {

@@ -44,18 +44,18 @@ export async function verifyKeys(): Promise<void> {
       const mode = project.stripeKey!.includes('_live_') ? 'live' : 'test';
       const restricted = project.stripeKey!.startsWith('rk_');
       console.log(
-        `[stripe] ${project.id} : clé ${mode}${restricted ? ' restreinte' : ''} valide`,
+        `[stripe] ${project.id}: valid ${mode}${restricted ? ' restricted' : ''} key`,
       );
       if (!restricted) {
         console.warn(
-          `[stripe] ${project.id} : clé secrète complète détectée. ` +
-            `Une clé restreinte en lecture seule (rk_live_…) est fortement recommandée.`,
+          `[stripe] ${project.id}: full secret key detected. ` +
+            `A read-only restricted key (rk_live_…) is strongly recommended.`,
         );
       }
     } catch (err) {
       // On ne journalise jamais la clé elle-même, seulement l'identifiant projet.
       console.error(
-        `[stripe] ${project.id} : clé invalide ou permissions insuffisantes — ${(err as Error).message}`,
+        `[stripe] ${project.id}: invalid key or insufficient permissions: ${(err as Error).message}`,
       );
     }
   }

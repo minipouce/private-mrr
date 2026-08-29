@@ -100,7 +100,7 @@ export async function refreshRates(): Promise<void> {
     })();
   } catch (err) {
     console.warn(
-      `[fx] rafraîchissement des taux impossible, cache conservé : ${(err as Error).message}`,
+      `[fx] could not refresh rates, keeping cache: ${(err as Error).message}`,
     );
   }
 }

@@ -25,7 +25,7 @@ function money(cents: number): string {
 export function registerToken(token: string, deviceName?: string): void {
   const trimmed = token.trim();
   if (trimmed.length < 32 || trimmed.length > 4096 || /\s/.test(trimmed)) {
-    throw new Error("Jeton d'appareil invalide");
+    throw new Error('Invalid device token');
   }
 
   const now = Math.floor(Date.now() / 1000);
@@ -180,9 +180,9 @@ async function broadcast(build: (token: string) => FcmMessage): Promise<number> 
       if (!result.ok) {
         if (result.unregistered) {
           removeToken(token);
-          console.log('[push] jeton purgé (appareil désinscrit)');
+          console.log('[push] token purged (device unregistered)');
         } else {
-          console.warn(`[push] envoi échoué : ${result.message}`);
+          console.warn(`[push] send failed: ${result.message}`);
         }
       }
       return result.ok;
@@ -250,13 +250,13 @@ export async function notifyEvent(event: EventRow, projectName: string): Promise
       },
     }));
   } catch (err) {
-    console.error(`[push] envoi impossible : ${(err as Error).message}`);
+    console.error(`[push] send error: ${(err as Error).message}`);
   }
 }
 
 /** Notification de test, déclenchée depuis l'app pour valider la chaîne. */
 export async function sendTestNotification(): Promise<number> {
-  if (!isConfigured()) throw new Error('FCM non configuré côté serveur');
+  if (!isConfigured()) throw new Error('FCM not configured on the server');
 
   return broadcast((token) => ({
     token,

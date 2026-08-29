@@ -107,7 +107,7 @@ export async function backfillProject(
   let eventCount = 0;
   let repaired = 0;
 
-  console.log(`[backfill] ${project.id} : import depuis ${new Date(from * 1000).toISOString().slice(0, 10)}`);
+  console.log(`[backfill] ${project.id}: importing since ${new Date(from * 1000).toISOString().slice(0, 10)}`);
 
   try {
     // ---- Abonnements : état courant + événements de cycle de vie synthétiques
@@ -213,13 +213,13 @@ export async function backfillProject(
     ).run(Math.floor(Date.now() / 1000), project.id);
 
     console.log(
-      `[backfill] ${project.id} : ${subCount} abonnements, ${eventCount} événements importés` +
-        (repaired ? `, ${repaired} complétés` : ''),
+      `[backfill] ${project.id}: ${subCount} subscriptions, ${eventCount} events imported` +
+        (repaired ? `, ${repaired} completed` : ''),
     );
   } catch (err) {
     const message = (err as Error).message;
     markSyncError(project.id, message);
-    console.error(`[backfill] ${project.id} : échec — ${message}`);
+    console.error(`[backfill] ${project.id}: failed, ${message}`);
   }
 
   return { subscriptions: subCount, events: eventCount };
@@ -252,7 +252,7 @@ export async function reconcileProject(project: ProjectConfig): Promise<number> 
     markSyncError(project.id, null);
   } catch (err) {
     markSyncError(project.id, (err as Error).message);
-    console.error(`[reconcile] ${project.id} : ${(err as Error).message}`);
+    console.error(`[reconcile] ${project.id}: ${(err as Error).message}`);
   }
   return count;
 }

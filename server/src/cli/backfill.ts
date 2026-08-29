@@ -21,13 +21,13 @@ const targets = config.projects.filter(
 );
 
 if (targets.length === 0) {
-  console.error('Aucun projet correspondant avec une clé Stripe configurée.');
+  console.error('No matching project with a configured Stripe key.');
   process.exit(1);
 }
 
 for (const project of targets) {
   const result = await backfillProject(project, { force });
-  console.log(`${project.id} : ${result.subscriptions} abonnements, ${result.events} événements`);
+  console.log(`${project.id}: ${result.subscriptions} subscriptions, ${result.events} events`);
 }
 
 db.close();
