@@ -207,6 +207,7 @@ function baseEvent(
     customer_name: null,
     subscription_id: null,
     payment_intent: null,
+    billing_reason: null,
     description: null,
     occurred_at: occurredAt,
   };
@@ -234,6 +235,8 @@ export function eventFromInvoice(
     subscription_id: invoiceSubscriptionId(invoice),
     // Renseigné uniquement si la facture a été lue avec `expand: ['data.payments']`.
     payment_intent: invoicePaymentIntents(invoice)[0] ?? null,
+    // Distingue une première souscription d'un renouvellement de cycle.
+    billing_reason: invoice.billing_reason ?? null,
     description: invoice.lines?.data?.[0]?.description ?? invoice.number ?? null,
     occurred_at: invoice.status_transitions?.paid_at ?? invoice.created,
   };

@@ -8,6 +8,7 @@ import { MRR_STATUSES, TRIAL_STATUSES } from '../stripe/normalize.js';
 import { bus } from '../lib/bus.js';
 import { isPushConfigured } from '../push/index.js';
 import { hasLogo } from '../stripe/branding.js';
+import { globalGoal, setGlobalGoal, type GoalKind } from '../lib/settings.js';
 
 const clamp = (v: number, min: number, max: number) => Math.min(Math.max(v, min), max);
 
@@ -45,7 +46,10 @@ export function registerApi(app: FastifyInstance): void {
     }));
   });
 
-  app.put<{ Params: { id: string }; Body: { include_in_totals?: boolean } }>(
+  app.put<{
+    Params: { id: string };
+    Body: { include_in_totals?: boolean; goal_cents?: number | null; goal_kind?: string };
+  }>(
     '/api/projects/:id',
     async (request, reply) => {
       const exists = db.prepare('SELECT 1 FROM projects WHERE id = ?').get(request.params.id);
@@ -58,12 +62,42 @@ export function registerApi(app: FastifyInstance): void {
         );
       }
 
+      if ('goal_cents' in (request.body ?? {})) {
+        const raw = request.body?.goal_cents;
+        // Un objectif nul ou négatif vaut suppression : c'est ainsi que
+        // l'interface efface un objectif sans verbe dédié.
+        const cents = typeof raw === 'number' && raw > 0 ? Math.round(raw) : null;
+        const kind: GoalKind = request.body?.goal_kind === 'arr' ? 'arr' : 'mrr';
+        db.prepare('UPDATE projects SET goal_cents = ?, goal_kind = ? WHERE id = ?').run(
+          cents,
+          kind,
+          request.params.id,
+        );
+      }
+
       // Le consolidé change : on prévient les clients connectés au flux.
       bus.publishMetricsDirty();
 
-      return db
-        .prepare('SELECT id, name, color, include_in_totals FROM projects WHERE id = ?')
-        .get(request.params.id);
+      // Même forme que la liste : l'application remplace l'élément modifié
+      // dans son état, une réponse partielle en viderait des champs.
+      const row = db
+        .prepare(
+          `SELECT id, name, color, include_in_totals, goal_cents, goal_kind, created_at
+           FROM projects WHERE id = ?`,
+        )
+        .get(request.params.id) as Record<string, unknown>;
+
+      const sync = db
+        .prepare('SELECT * FROM sync_state WHERE project_id = ?')
+        .get(request.params.id) ?? null;
+
+      return {
+        ...row,
+        connected: Boolean(config.projectById.get(request.params.id)?.stripeKey),
+        includedInTotals: row.include_in_totals === 1,
+        hasLogo: hasLogo(request.params.id),
+        sync,
+      };
     },
   );
 
@@ -175,6 +209,21 @@ export function registerApi(app: FastifyInstance): void {
   });
 
   app.post('/api/push/test', async () => ({ sent: await sendTestNotification() }));
+
+  app.get('/api/goal', async () => globalGoal());
+
+  app.put<{ Body: { goal_cents?: number | null; goal_kind?: string } }>(
+    '/api/goal',
+    async (request) => {
+      const raw = request.body?.goal_cents;
+      const cents = typeof raw === 'number' && raw > 0 ? Math.round(raw) : 0;
+      setGlobalGoal(
+        cents > 0 ? { cents, kind: request.body?.goal_kind === 'arr' ? 'arr' : 'mrr' } : null,
+      );
+      bus.publishMetricsDirty();
+      return globalGoal();
+    },
+  );
 
   app.get('/api/prefs', async () =>
     db.prepare('SELECT * FROM notification_prefs').all(),

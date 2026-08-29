@@ -26,6 +26,8 @@ export interface EventRow {
   subscription_id: string | null;
   /** Identifiant commun entre une facture et sa charge : clé de déduplication. */
   payment_intent: string | null;
+  /** Motif Stripe : `subscription_create`, `subscription_cycle`, `manual`… */
+  billing_reason: string | null;
   description: string | null;
   occurred_at: number;
   created_at: number;
@@ -45,12 +47,12 @@ const insertStmt = db.prepare(`
     project_id, stripe_event_id, stripe_object_id, kind,
     amount_cents, currency, amount_base_cents, mrr_delta_cents,
     customer_id, customer_email, customer_name, subscription_id,
-    payment_intent, description, occurred_at, created_at
+    payment_intent, billing_reason, description, occurred_at, created_at
   ) VALUES (
     @project_id, @stripe_event_id, @stripe_object_id, @kind,
     @amount_cents, @currency, @amount_base_cents, @mrr_delta_cents,
     @customer_id, @customer_email, @customer_name, @subscription_id,
-    @payment_intent, @description, @occurred_at, @created_at
+    @payment_intent, @billing_reason, @description, @occurred_at, @created_at
   )
 `);
 

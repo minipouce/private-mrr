@@ -2,6 +2,7 @@ import { db } from '../db/index.js';
 import { config } from '../config.js';
 import { MRR_STATUSES, TRIAL_STATUSES } from '../stripe/normalize.js';
 import { hasLogo } from '../stripe/branding.js';
+import { globalGoal, goalProgress, type GoalKind } from '../lib/settings.js';
 
 const MRR_LIST = MRR_STATUSES.map((s) => `'${s}'`).join(',');
 const TRIAL_LIST = TRIAL_STATUSES.map((s) => `'${s}'`).join(',');
@@ -296,19 +297,37 @@ function buildMetrics(
 export function overview() {
   const projects = db
     .prepare(
-      'SELECT id, name, color, include_in_totals FROM projects ORDER BY name COLLATE NOCASE',
+      `SELECT id, name, color, include_in_totals, goal_cents, goal_kind
+       FROM projects ORDER BY name COLLATE NOCASE`,
     )
-    .all() as { id: string; name: string; color: string; include_in_totals: number }[];
+    .all() as {
+    id: string;
+    name: string;
+    color: string;
+    include_in_totals: number;
+    goal_cents: number | null;
+    goal_kind: string;
+  }[];
+
+  const total = buildMetrics(undefined, 'Tous les projets', '#6366f1');
 
   return {
     generatedAt: Math.floor(Date.now() / 1000),
     currency: config.baseCurrency,
-    total: buildMetrics(undefined, 'Tous les projets', '#6366f1'),
-    projects: projects.map((p) => ({
-      ...buildMetrics(p.id, p.name, p.color),
-      includedInTotals: p.include_in_totals === 1,
-      hasLogo: hasLogo(p.id),
-    })),
+    total: { ...total, goal: goalProgress(globalGoal(), total.mrrCents) },
+    projects: projects.map((p) => {
+      const metrics = buildMetrics(p.id, p.name, p.color);
+      const goal =
+        p.goal_cents && p.goal_cents > 0
+          ? { cents: p.goal_cents, kind: (p.goal_kind === 'arr' ? 'arr' : 'mrr') as GoalKind }
+          : null;
+      return {
+        ...metrics,
+        includedInTotals: p.include_in_totals === 1,
+        hasLogo: hasLogo(p.id),
+        goal: goalProgress(goal, metrics.mrrCents),
+      };
+    }),
   };
 }
 

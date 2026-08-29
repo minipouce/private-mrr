@@ -14,6 +14,10 @@ CREATE TABLE IF NOT EXISTS projects (
   include_in_totals INTEGER NOT NULL DEFAULT 1,
   -- Dernière récupération du logo de marque depuis Stripe.
   logo_updated_at INTEGER,
+  -- Objectif de revenu, en centimes de la devise de consolidation.
+  goal_cents      INTEGER,
+  -- Nature de l'objectif : 'mrr' ou 'arr'.
+  goal_kind       TEXT NOT NULL DEFAULT 'mrr',
   created_at  INTEGER NOT NULL
 );
 
@@ -34,6 +38,9 @@ CREATE TABLE IF NOT EXISTS events (
   customer_name      TEXT,
   subscription_id    TEXT,
   payment_intent     TEXT,
+  -- Motif Stripe de la facture : distingue une première souscription d'un
+  -- renouvellement, information invisible sur le seul montant encaissé.
+  billing_reason     TEXT,
   description        TEXT,
   occurred_at        INTEGER NOT NULL,
   created_at         INTEGER NOT NULL,
@@ -112,4 +119,12 @@ CREATE TABLE IF NOT EXISTS fx_rates (
   currency    TEXT PRIMARY KEY,
   rate        REAL NOT NULL,
   updated_at  INTEGER NOT NULL
+);
+
+-- Réglages globaux, sous forme clé/valeur : peu nombreux et hétérogènes,
+-- une table dédiée par réglage serait disproportionnée.
+CREATE TABLE IF NOT EXISTS settings (
+  key        TEXT PRIMARY KEY,
+  value      TEXT NOT NULL,
+  updated_at INTEGER NOT NULL
 );

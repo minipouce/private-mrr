@@ -166,6 +166,7 @@ export async function backfillProject(
           customer_name: charge.billing_details?.name ?? null,
           subscription_id: null,
           payment_intent: null,
+          billing_reason: null,
           description: charge.description ?? 'Remboursement',
           occurred_at: charge.created,
         };

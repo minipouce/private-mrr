@@ -54,6 +54,15 @@ function migrate(db: Database.Database): void {
     db.exec('ALTER TABLE projects ADD COLUMN logo_updated_at INTEGER');
     console.log('[db] migration : colonne logo_updated_at ajoutée');
   }
+  if (projectColumns.length > 0 && !projectColumns.includes('goal_cents')) {
+    db.exec('ALTER TABLE projects ADD COLUMN goal_cents INTEGER');
+    db.exec("ALTER TABLE projects ADD COLUMN goal_kind TEXT NOT NULL DEFAULT 'mrr'");
+    console.log('[db] migration : colonnes d objectif ajoutées');
+  }
+  if (!columns.includes('billing_reason')) {
+    db.exec('ALTER TABLE events ADD COLUMN billing_reason TEXT');
+    console.log('[db] migration : colonne billing_reason ajoutée');
+  }
 }
 
 export const db = openDatabase();
@@ -100,6 +109,8 @@ export interface ProjectRow {
   color: string;
   include_in_totals: number;
   logo_updated_at: number | null;
+  goal_cents: number | null;
+  goal_kind: string;
   created_at: number;
 }
 

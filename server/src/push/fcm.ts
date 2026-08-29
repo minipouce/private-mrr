@@ -128,6 +128,8 @@ export interface FcmMessage {
   /** FCM n'accepte que des chaînes dans `data` : les nombres sont convertis. */
   data?: Record<string, string | number>;
   channelId?: string;
+  /** Nom de ressource du son, sans extension de chemin. */
+  sound?: string;
   color?: string;
   /** Image affichée lorsque la notification est dépliée. */
   imageUrl?: string;
@@ -162,7 +164,9 @@ export async function sendToDevice(message: FcmMessage): Promise<SendOutcome> {
         priority: 'HIGH',
         notification: {
           channel_id: message.channelId ?? 'revenue',
-          sound: 'default',
+          // Sur Android 8 et suivants, le son du canal prime ; ce champ ne sert
+          // que de repli pour les versions antérieures.
+          sound: message.sound ?? 'default',
           color: message.color ?? '#6366F1',
           default_vibrate_timings: true,
           ...(message.imageUrl ? { image: message.imageUrl } : {}),

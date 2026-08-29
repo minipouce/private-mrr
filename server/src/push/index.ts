@@ -89,6 +89,28 @@ function shouldNotify(event: EventRow, prefs: Prefs): boolean {
   }
 }
 
+/**
+ * Nature d'un encaissement, telle que Stripe la qualifie.
+ *
+ * Le montant seul ne dit pas s'il s'agit d'une première souscription ou d'un
+ * renouvellement — or c'est l'information la plus utile d'un coup d'œil.
+ */
+function paymentNature(event: EventRow): string {
+  switch (event.billing_reason) {
+    case 'subscription_create':
+      return 'Nouvel abonnement';
+    case 'subscription_cycle':
+      return 'Renouvellement';
+    case 'subscription_update':
+      return 'Changement de formule';
+    case 'subscription_threshold':
+      return 'Palier de consommation';
+    default:
+      // Sans motif exploitable, la présence d'un abonnement reste un indice sûr.
+      return event.subscription_id ? 'Abonnement' : 'Paiement ponctuel';
+  }
+}
+
 function compose(
   event: EventRow,
   projectName: string,
@@ -96,11 +118,19 @@ function compose(
   const who = event.customer_name ?? event.customer_email ?? 'un client';
 
   switch (event.kind) {
-    case 'payment':
+    case 'payment': {
+      const nature = paymentNature(event);
+      const glyph =
+        event.billing_reason === 'subscription_create'
+          ? '🎉'
+          : event.billing_reason === 'subscription_cycle'
+            ? '🔁'
+            : '💰';
       return {
-        title: `💰 ${money(event.amount_base_cents)} — ${projectName}`,
-        body: `Paiement reçu de ${who}${event.description ? ` · ${event.description}` : ''}`,
+        title: `${glyph} ${money(event.amount_base_cents)} — ${projectName}`,
+        body: `${nature} · ${who}${event.description ? ` · ${event.description}` : ''}`,
       };
+    }
     case 'subscription_created':
       return {
         title: `🎉 Nouvel abonné — ${projectName}`,
@@ -198,10 +228,17 @@ export async function notifyEvent(event: EventRow, projectName: string): Promise
 
     const visuals = projectVisuals(event.project_id);
 
+    // Un encaissement passe par un canal dédié, porteur du son de caisse.
+    // Le son d'un canal Android est figé à sa création : il faut un canal
+    // distinct plutôt qu'un simple paramètre par message.
+    const channelId = event.kind === 'payment' ? 'payments' : 'revenue';
+
     await broadcast((token) => ({
       token,
       title: content.title,
       body: content.body,
+      channelId,
+      sound: channelId === 'payments' ? 'cash.mp3' : 'default',
       color: visuals.color,
       imageUrl: visuals.imageUrl,
       // Permet à l'app d'ouvrir directement le bon projet au tap.
