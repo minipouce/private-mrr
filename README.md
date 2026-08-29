@@ -4,10 +4,13 @@
 
 **Track revenue across many Stripe accounts, in real time, from your own phone.**
 
+**Get a notification the second a payment or a renewal lands** — with the amount,
+the customer, and which product it came from.
+
 Self-hosted. Your Stripe keys never leave your server.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-6366F1.svg)](LICENSE)
-![Platform](https://img.shields.io/badge/platform-Android-22D39A.svg)
+![Platform](https://img.shields.io/badge/platform-Android%20only-22D39A.svg)
 ![Stack](https://img.shields.io/badge/stack-Node%20·%20SQLite%20·%20Expo-9AA1B4.svg)
 
 </div>
@@ -37,6 +40,17 @@ second a payment lands, and runs entirely on hardware you control.
 
 **It answers, at a glance:** what is my MRR right now, how much came in today,
 how does this month compare to last, and where will I land by year end.
+
+And it tells you the moment something happens — a new subscription, a renewal,
+an upgrade, a cancellation — without you opening anything.
+
+> [!IMPORTANT]
+> **Android only.** The app, the notifications and the home screen widget are
+> built for Android. The server is platform-agnostic, and most of the app code
+> is cross-platform React Native — but iOS would need push migrated to APNs, the
+> widget rewritten in Swift (WidgetKit), and an Apple Developer account at
+> $99/year, without which an app cannot receive push notifications and expires
+> after seven days. See [iOS support](#ios-support) if you want to take it on.
 
 ## Why the keys stay on the server
 
@@ -109,6 +123,7 @@ Swap the sound by replacing `app/assets/sounds/cash.mp3`.
 - One or more Stripe accounts
 - A Firebase project — free, for push notifications
 - Node 20+ and the Android SDK, to build the APK
+- **An Android phone** — see [iOS support](#ios-support)
 
 **Not a developer?** See **[SETUP-WITH-AI.md](SETUP-WITH-AI.md)** — a document
 written to be handed to Claude or ChatGPT, which will walk you through every
@@ -312,6 +327,30 @@ From an Android emulator, the host machine is reachable at
 
 Push notifications do not work in Expo Go since SDK 53 — you need a development
 build or the release APK.
+
+## iOS support
+
+Not supported today, and the reason is cost rather than difficulty.
+
+**Already cross-platform:** every screen, all the metrics, the live SSE stream,
+the charts, the translations, and token storage — `expo-secure-store` maps to
+the iOS Keychain on its own. `npx expo run:ios` produces a working app minus
+notifications and the widget.
+
+**What someone would need to write:**
+
+| Piece | Effort |
+|---|---|
+| Push notifications | Switch the server from FCM to APNs — a few hours |
+| Home screen widget | Full rewrite in Swift with WidgetKit; no JavaScript equivalent exists — about a day |
+| Network security config | Nothing, the Android plugin has no iOS counterpart |
+
+**The blocker is the $99/year Apple Developer account.** It is required both for
+push notifications — which is the whole point of this app — and to keep the app
+installed at all: iOS has no sideloading, free Xcode signing expires after seven
+days, and TestFlight needs the paid account too.
+
+Pull requests welcome if that trade-off works for you.
 
 ## Security notes
 
