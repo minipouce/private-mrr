@@ -167,6 +167,18 @@ export const en = {
   channelPaymentsHint: 'Incoming payments, with a cash register sound',
   channelRevenue: 'Subscriptions and incidents',
   channelRevenueHint: 'New subscribers, cancellations, failed payments',
+  batteryOptimization: 'Notifications arriving late?',
+  batteryOptimizationHint:
+    'Android may hold notifications back to save battery, sometimes until you open the app. Exempt this app so payments reach you the moment they happen.',
+  batteryOptimizationUnavailable: 'Your phone does not expose this setting. Look for battery or background restrictions in the app info screen.',
+  oemHintHuawei:
+    'On Huawei and Honor this is not enough. Also open Settings → Apps → MRR → Battery → App launch, turn off "Manage automatically", and enable all three switches. Then lock the app in the recent apps view.',
+  oemHintXiaomi:
+    'On Xiaomi, Redmi and Poco, also enable Autostart for MRR and set Battery saver to "No restrictions", then lock the app in the recent apps view.',
+  oemHintSamsung:
+    'On Samsung, also set Battery to "Unrestricted" and make sure MRR is not in the "Sleeping apps" list under Device care.',
+  oemHintOppo:
+    'On this brand, also allow background activity and auto-launch for MRR in its battery settings, then lock the app in the recent apps view.',
   pushConfigureFirst: 'Configure the server before notifications',
   pushDeniedSettings: 'Notifications denied in Android settings',
 
@@ -350,6 +362,18 @@ export const fr: Strings = {
   channelPaymentsHint: 'Encaissements, avec son de caisse',
   channelRevenue: 'Abonnements et incidents',
   channelRevenueHint: 'Nouveaux abonnés, annulations, échecs de paiement',
+  batteryOptimization: 'Notifications en retard ?',
+  batteryOptimizationHint:
+    "Android peut retenir les notifications pour économiser la batterie, parfois jusqu'à l'ouverture de l'app. Exempte cette app pour recevoir les paiements à l'instant.",
+  batteryOptimizationUnavailable: "Ton téléphone n'expose pas ce réglage. Cherche les restrictions batterie ou arrière-plan dans la fiche de l'app.",
+  oemHintHuawei:
+    "Sur Huawei et Honor ça ne suffit pas. Ouvre aussi Paramètres → Applications → MRR → Batterie → Lancement d'applications, désactive « Gérer automatiquement » et active les trois interrupteurs. Puis verrouille l'app dans les applications récentes.",
+  oemHintXiaomi:
+    "Sur Xiaomi, Redmi et Poco, active aussi le démarrage automatique pour MRR et passe l'économiseur de batterie sur « Aucune restriction », puis verrouille l'app dans les applications récentes.",
+  oemHintSamsung:
+    "Sur Samsung, passe aussi la batterie sur « Sans restriction » et vérifie que MRR n'est pas dans la liste des « Applications en veille » de la Maintenance de l'appareil.",
+  oemHintOppo:
+    "Sur cette marque, autorise aussi l'activité en arrière-plan et le lancement automatique pour MRR dans ses réglages de batterie, puis verrouille l'app dans les applications récentes.",
   pushConfigureFirst: 'Configure le serveur avant les notifications',
   pushDeniedSettings: 'Notifications refusées dans les réglages Android',
 

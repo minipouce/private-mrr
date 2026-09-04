@@ -56,6 +56,52 @@ export async function ensureChannels(): Promise<void> {
 
 export type PushStatus = 'idle' | 'registering' | 'granted' | 'denied' | 'unsupported' | 'error';
 
+/**
+ * Fetches the FCM token and hands it to the server, with the device language.
+ *
+ * Shared by the explicit "enable" tap and the silent sync at launch. One
+ * in-flight call is reused: the root layout and the settings screen both mount
+ * the hook, and there is no point sending the same token twice in a row.
+ */
+let inflight: Promise<string> | null = null;
+
+function syncToken(): Promise<string> {
+  if (inflight) return inflight;
+  inflight = (async () => {
+    // Android channel: carries HIGH importance, required for the notification
+    // to appear as a heads-up banner and vibrate rather than stay silent.
+    await ensureChannels();
+
+    // A native FCM token, not an Expo token: the server sends straight to
+    // Firebase without going through Expo's push service. Notification
+    // contents therefore pass through no extra intermediary.
+    const devicePushToken = await Notifications.getDevicePushTokenAsync();
+    const fcmToken = String(devicePushToken.data);
+
+    const config = await loadConfig();
+    if (!config) throw new Error(t('pushConfigureFirst'));
+
+    // The language travels with the token: the server composes each
+    // notification in the language of the device it is sending to.
+    await api.registerPush(fcmToken, Device.deviceName ?? 'Android', activeLanguage());
+    return fcmToken;
+  })().finally(() => {
+    inflight = null;
+  });
+  return inflight;
+}
+
+/** Turns a token failure into a status and a message the user can act on. */
+function classify(err: unknown): { status: PushStatus; message: string } {
+  const message = (err as Error).message;
+  // Most common cause: Google Play Services missing (bare emulator,
+  // de-Googled ROM). Firebase's raw message does not help the user.
+  const missingPlayServices = /play services|SERVICE_NOT_AVAILABLE|MISSING_INSTANCEID/i.test(message);
+  return missingPlayServices
+    ? { status: 'unsupported', message: t('pushDevicePhysical') }
+    : { status: 'error', message };
+}
+
 export function usePush() {
   const [status, setStatus] = useState<PushStatus>('idle');
   const [token, setToken] = useState<string | null>(null);
@@ -68,10 +114,6 @@ export function usePush() {
     // request itself, whose failure is handled below.
     setStatus('registering');
     try {
-      // Android channel: carries HIGH importance, required for the notification
-      // to appear as a heads-up banner and vibrate rather than stay silent.
-      await ensureChannels();
-
       const existing = await Notifications.getPermissionsAsync();
       let granted = existing.granted;
       if (!granted) {
@@ -85,46 +127,57 @@ export function usePush() {
         return false;
       }
 
-      // A native FCM token, not an Expo token: the server sends straight to
-      // Firebase without going through Expo's push service. Notification
-      // contents therefore pass through no extra intermediary.
-      const devicePushToken = await Notifications.getDevicePushTokenAsync();
-      const fcmToken = String(devicePushToken.data);
-
-      const config = await loadConfig();
-      if (!config) {
-        setStatus('error');
-        setError(t('pushConfigureFirst'));
-        return false;
-      }
-
-      // The language travels with the token: the server composes each
-      // notification in the language of the device it is sending to.
-      await api.registerPush(fcmToken, Device.deviceName ?? 'Android', activeLanguage());
+      const fcmToken = await syncToken();
       setToken(fcmToken);
       setStatus('granted');
       setError(null);
       registered.current = true;
       return true;
     } catch (err) {
-      const message = (err as Error).message;
-      // Most common cause: Google Play Services missing (bare emulator,
-      // de-Googled ROM). Firebase's raw message does not help the user.
-      const isMissingPlayServices = /play services|SERVICE_NOT_AVAILABLE|MISSING_INSTANCEID/i.test(
-        message,
-      );
-      setStatus(isMissingPlayServices ? 'unsupported' : 'error');
-      setError(
-        isMissingPlayServices
-          ? t('pushDevicePhysical')
-          : message,
-      );
+      const outcome = classify(err);
+      setStatus(outcome.status);
+      setError(outcome.message);
       return false;
     }
   }, []);
 
   useEffect(() => {
     void ensureChannels();
+  }, []);
+
+  /**
+   * Syncs the token on every launch once permission has been granted.
+   *
+   * FCM tokens rotate, and the server only learns the device language through
+   * this call. Without it, a phone that tapped "enable" once keeps the token
+   * and language it had that day for ever: the server was still holding a
+   * registration from the first afternoon, in English, a week later.
+   *
+   * Permission is only checked, never requested, so this never prompts. The
+   * status is set from the permission straight away, so the settings screen
+   * does not read "not requested" while the token fetch is still running.
+   */
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const existing = await Notifications.getPermissionsAsync();
+        if (!existing.granted || cancelled) return;
+        setStatus('granted');
+        const fcmToken = await syncToken();
+        if (cancelled) return;
+        setToken(fcmToken);
+        registered.current = true;
+      } catch (err) {
+        if (cancelled) return;
+        const outcome = classify(err);
+        setStatus(outcome.status);
+        setError(outcome.message);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // A notification marks exactly the moment the figures change, which is the

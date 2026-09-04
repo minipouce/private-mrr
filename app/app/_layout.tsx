@@ -4,7 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { LiveProvider } from '../src/hooks/useLive';
-import { ensureChannels } from '../src/hooks/usePush';
+import { ensureChannels, usePush } from '../src/hooks/usePush';
 import { onLanguageChange } from '../src/i18n';
 import { refreshWidget } from '../src/widget/refresh';
 import { colors } from '../src/theme/index';
@@ -15,6 +15,11 @@ export default function RootLayout() {
   useEffect(() => {
     void ensureChannels();
   }, []);
+
+  // Mounted here so the token sync runs at launch on every screen. The hook
+  // was previously mounted only by the settings screen, which meant the server
+  // never heard from the app unless that screen was opened.
+  usePush();
 
   /**
    * Remounts the screens when the language changes.

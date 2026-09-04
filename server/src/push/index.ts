@@ -266,7 +266,10 @@ export function compose(
  */
 async function broadcast(build: (device: Device) => FcmMessage | null): Promise<number> {
   const devices = activeDevices();
-  if (devices.length === 0) return 0;
+  if (devices.length === 0) {
+    console.warn('[push] nothing sent: no device registered');
+    return 0;
+  }
 
   const outcomes = await Promise.all(
     devices.map(async (device) => {
@@ -327,7 +330,7 @@ export async function notifyEvent(event: EventRow, projectName: string): Promise
     // channel rather than a per-message parameter.
     const channelId = event.kind === 'payment' ? 'payments' : 'revenue';
 
-    await broadcast(({ token, locale }) => {
+    const sent = await broadcast(({ token, locale }) => {
       const content = compose(event, projectName, locale);
       if (!content) return null;
 
@@ -348,6 +351,9 @@ export async function notifyEvent(event: EventRow, projectName: string): Promise
         },
       };
     });
+    // Successes were silent, which made "did the server even send it?"
+    // unanswerable from the logs when a notification arrived late.
+    console.log(`[push] ${event.kind} ${event.project_id} #${event.id} -> ${sent} device(s)`);
   } catch (err) {
     console.error(`[push] send error: ${(err as Error).message}`);
   }

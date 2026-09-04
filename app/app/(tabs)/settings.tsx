@@ -11,6 +11,9 @@ import { clearConfig, loadConfig } from '../../src/api/config';
 import { colors, radius, space, type } from '../../src/theme/index';
 import { Card, SectionTitle, Divider } from '../../src/components/ui';
 import { LanguagePicker } from '../../src/components/LanguagePicker';
+import * as IntentLauncher from 'expo-intent-launcher';
+import * as Application from 'expo-application';
+import * as Device from 'expo-device';
 import { money, timeAgo } from '../../src/lib/format';
 import { ProjectLogo } from '../../src/components/ProjectLogo';
 import { GoalEditor } from '../../src/components/GoalEditor';
@@ -121,6 +124,47 @@ export default function Settings() {
     }
   };
 
+  /**
+   * Opens Android's battery exemption dialog for this app.
+   *
+   * Many manufacturers stop background apps aggressively, and a stopped app
+   * receives no push until the user opens it again, which defeats the whole
+   * point of a payment notification. The direct request shows a yes/no dialog;
+   * if the manufacturer blocks that, fall back to the list where the app can
+   * be found by hand.
+   */
+  const openBatterySettings = async () => {
+    const pkg = Application.applicationId;
+    try {
+      await IntentLauncher.startActivityAsync(
+        IntentLauncher.ActivityAction.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+        { data: `package:${pkg}` },
+      );
+    } catch {
+      try {
+        await IntentLauncher.startActivityAsync(
+          IntentLauncher.ActivityAction.IGNORE_BATTERY_OPTIMIZATION_SETTINGS,
+        );
+      } catch {
+        Alert.alert(t('failed'), t('batteryOptimizationUnavailable'));
+      }
+    }
+  };
+
+  /**
+   * Manufacturer-specific advice, because the standard battery exemption is
+   * not enough on several brands: each has a second layer of its own that also
+   * has to be switched off, and the path differs for each.
+   */
+  const oemHint = (() => {
+    const brand = (Device.brand ?? '').toLowerCase();
+    if (/huawei|honor/.test(brand)) return t('oemHintHuawei');
+    if (/xiaomi|redmi|poco/.test(brand)) return t('oemHintXiaomi');
+    if (/samsung/.test(brand)) return t('oemHintSamsung');
+    if (/oppo|realme|oneplus|vivo/.test(brand)) return t('oemHintOppo');
+    return null;
+  })();
+
   const disconnect = () => {
     Alert.alert(
       t('disconnect'),
@@ -203,6 +247,13 @@ export default function Settings() {
           </Text>
           <Text style={styles.chevron}>›</Text>
         </Pressable>
+        <Divider />
+        <Pressable onPress={openBatterySettings} style={styles.action}>
+          <Text style={styles.actionText}>{t('batteryOptimization')}</Text>
+          <Text style={styles.chevron}>›</Text>
+        </Pressable>
+        <Text style={styles.hint}>{t('batteryOptimizationHint')}</Text>
+        {oemHint && <Text style={[styles.hint, styles.hintStrong]}>{oemHint}</Text>}
       </Card>
 
       <SectionTitle>{t('globalGoal')}</SectionTitle>
@@ -397,6 +448,7 @@ const styles = StyleSheet.create({
   syncError: { ...type.caption, color: colors.negative, fontSize: 11, marginTop: space.sm },
   projectPrefs: { gap: space.md },
   prefCard: { gap: space.sm },
+  hintStrong: { color: colors.warning },
   prefHeader: { flexDirection: 'row', alignItems: 'center', gap: space.sm, marginBottom: space.xs },
   dot: { width: 9, height: 9, borderRadius: 4.5 },
   prefName: { ...type.heading, color: colors.text, fontSize: 15, flex: 1 },

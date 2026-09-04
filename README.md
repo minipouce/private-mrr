@@ -379,6 +379,29 @@ Pull requests welcome if that trade-off works for you.
 - Container runs unprivileged with a read-only filesystem
 - Logs redact `Authorization` and `stripe-signature`
 
+## Notifications arrive late, or only when you open the app
+
+That is your phone, not the server. Many Android manufacturers stop background
+apps to save battery, and Android delivers no push to a stopped app until you
+launch it again. The server sent the notification the second Stripe called; your
+phone sat on it.
+
+Two things fix it:
+
+1. In the app, **Settings → Notifications → "Notifications arriving late?"**
+   opens Android's exemption dialog. Say yes.
+2. On Xiaomi, Huawei, Oppo, OnePlus, Vivo and some Samsung phones there is a
+   second layer that the exemption does not touch. The app shows the steps for
+   your brand under that same button. Huawei and Honor are the strictest:
+   **Settings → Apps → MRR → Battery → App launch**, turn off "Manage
+   automatically", enable all three switches, then **lock the app** in the
+   recent apps view so a swipe does not kill it.
+   [dontkillmyapp.com](https://dontkillmyapp.com) covers every manufacturer.
+
+The server log shows `[push] payment buska #123 -> 1 device(s)` for every send,
+so you can tell the two cases apart: if that line is there and the phone stayed
+quiet, it is the phone.
+
 ## Stuck? Or want this without the server?
 
 **If you get stuck deploying**, reach out. Open an
