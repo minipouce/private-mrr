@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { colors, space, type } from '../theme/index';
-import { moneyRounded, percent } from '../lib/format';
+import { moneyRounded, percentPlain } from '../lib/format';
 import type { Projection } from '../api/types';
 import { t } from '../i18n';
 
@@ -23,7 +23,12 @@ export function ForecastRange({
   projection: Projection;
   currency: string;
 }) {
-  const { drivers } = projection;
+  const { drivers, lowCents, highCents } = projection;
+
+  // A server older than the forecast engine sends none of this. Saying nothing
+  // is right: the projection value above it is still the server's own figure.
+  if (!drivers || lowCents === undefined || highCents === undefined) return null;
+
   if (drivers.monthsObserved < MIN_HISTORY) {
     return <Text style={styles.thin}>{t('thinHistory')}</Text>;
   }
@@ -31,9 +36,9 @@ export function ForecastRange({
   return (
     <Text style={styles.range} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
       <Text style={styles.rangeLabel}>{t('conservative')} </Text>
-      {moneyRounded(projection.lowCents, currency)}
+      {moneyRounded(lowCents, currency)}
       <Text style={styles.rangeLabel}>{'   ·   '}{t('optimistic')} </Text>
-      {moneyRounded(projection.highCents, currency)}
+      {moneyRounded(highCents, currency)}
     </Text>
   );
 }
@@ -47,7 +52,7 @@ export function ForecastDriversLine({
   currency: string;
 }) {
   const { drivers } = projection;
-  if (drivers.monthsObserved < MIN_HISTORY) return null;
+  if (!drivers || drivers.monthsObserved < MIN_HISTORY) return null;
 
   // A rising churn is bad news, so the arrow is tinted by meaning, not by sign.
   const arrow = drivers.churnTrendPct > 0.5 ? '↑' : drivers.churnTrendPct < -0.5 ? '↓' : '';
@@ -56,7 +61,7 @@ export function ForecastDriversLine({
   return (
     <View style={styles.drivers}>
       <Text style={styles.driversText} numberOfLines={2}>
-        <Text style={styles.driversStrong}>{percent(drivers.churnRate * 100)}</Text>
+        <Text style={styles.driversStrong}>{percentPlain(drivers.churnRate * 100)}</Text>
         {' '}{t('churnPerMonth')}{' '}
         {arrow ? <Text style={{ color: arrowColor }}>{arrow}</Text> : null}
         {drivers.churnBorrowed ? ` (${t('allProjects')})` : ''}

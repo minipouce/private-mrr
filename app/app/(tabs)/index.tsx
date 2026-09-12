@@ -173,8 +173,8 @@ export default function Dashboard() {
             label={t('sinceJanuary')}
             value={moneyCompact(m.ytdCents, m.currency)}
             hint={
-              m.compedSubscribers > 0
-                ? `${m.activeSubscribers} ${t('activeSubscribers')} · ${m.compedSubscribers} ${t('compedSubscribers')}`
+              (m.compedSubscribers ?? 0) > 0
+                ? `${m.activeSubscribers} ${t('activeSubscribers')} · ${m.compedSubscribers ?? 0} ${t('compedSubscribers')}`
                 : `${m.activeSubscribers} ${t('activeSubscribers')}`
             }
           />

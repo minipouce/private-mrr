@@ -125,9 +125,22 @@ export function signed(cents: number, currency = 'eur'): string {
 }
 
 /**
- * Percentage, spaced as the language wants: "3.5%" in English, "3,5 %" in
- * French. `style: 'percent'` carries that rule, so the value is divided by 100
- * to feed it a ratio rather than appending the sign by hand.
+ * Plain percentage, spaced as the language wants: "26.0%" in English, "26,0 %"
+ * in French. For a rate, not a variation — `percentSigned` carries the sign.
+ */
+export function percentPlain(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) return '—';
+  return new Intl.NumberFormat(intlLocale(), {
+    style: 'percent',
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  }).format(value / 100);
+}
+
+/**
+ * Signed percentage, spaced as the language wants: "+3.5%" in English, "+3,5 %"
+ * in French. `style: 'percent'` carries that rule, so the value is divided by
+ * 100 to feed it a ratio rather than appending the sign by hand.
  */
 export function percent(value: number | null): string {
   if (value === null || !Number.isFinite(value)) return '—';

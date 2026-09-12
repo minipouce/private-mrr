@@ -52,20 +52,29 @@ export interface ForecastDrivers {
   monthsObserved: number;
 }
 
+/**
+ * Everything added after a given server version is optional here.
+ *
+ * The server is self-hosted and updated by hand, so an app newer than the
+ * server it talks to is a normal state, not an accident. Declaring these
+ * required once cost a release: the app dereferenced `drivers` on a server that
+ * did not send it yet and crashed on the first render. Optional is the truth,
+ * and it makes the compiler point at every place that has to cope.
+ */
 export interface Projection {
   ytdCents: number;
   /** Expected: the base decaying at the measured churn, plus a typical month of sales. */
   projectedYearEndCents: number;
-  /** Existing base only, no new customer at all. */
-  lowCents: number;
-  /** New business following its trend rather than its median. */
-  highCents: number;
   projectedRecurringCents: number;
   projectedOneOffCents: number;
   runRateCents: number;
-  projectedYearEndMrrCents: number;
-  drivers: ForecastDrivers;
-  months: { month: string; cashCents: number; mrrCents: number }[];
+  /** Existing base only, no new customer at all. Absent before the forecast engine. */
+  lowCents?: number;
+  /** New business following its trend rather than its median. */
+  highCents?: number;
+  projectedYearEndMrrCents?: number;
+  drivers?: ForecastDrivers;
+  months?: { month: string; cashCents: number; mrrCents: number }[];
 }
 
 export interface GoalProgress {
@@ -92,13 +101,13 @@ export interface Metrics {
   mtdVsPrevPct: number | null;
   /** Subscribers actually paying: a billing subscription worth more than zero. */
   activeSubscribers: number;
-  /** Billing but worth zero: comped, 100% coupon, free plan. */
-  compedSubscribers: number;
   trials: number;
+  /** Billing but worth zero: comped, 100% coupon, free plan. Absent on older servers. */
+  compedSubscribers?: number;
   /** Subscribers billing but whose payment is failing (`past_due`). */
-  atRiskSubscribers: number;
+  atRiskSubscribers?: number;
   /** Share of `mrrCents` carried by those subscribers. */
-  atRiskMrrCents: number;
+  atRiskMrrCents?: number;
   movement: MrrMovement;
   projection: Projection;
   lastEventAt: number | null;

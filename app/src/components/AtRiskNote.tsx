@@ -21,17 +21,19 @@ export function AtRiskNote({
   currency,
   compact = false,
 }: {
-  cents: number;
-  subscribers: number;
+  /** Absent when the server predates this metric. */
+  cents?: number;
+  subscribers?: number;
   currency: string;
   compact?: boolean;
 }) {
-  if (subscribers <= 0) return null;
+  // Absent, zero, or not a number: there is nothing to warn about either way.
+  if (!subscribers || subscribers <= 0) return null;
 
   if (compact) {
     return (
       <Text style={styles.compact} numberOfLines={1}>
-        {money(cents, currency)} {t('atRisk')}
+        {money(cents ?? 0, currency)} {t('atRisk')}
       </Text>
     );
   }
@@ -39,7 +41,7 @@ export function AtRiskNote({
   return (
     <View style={styles.strip}>
       <View style={styles.dot} />
-      <Text style={styles.amount}>{money(cents, currency)}</Text>
+      <Text style={styles.amount}>{money(cents ?? 0, currency)}</Text>
       <Text style={styles.label}>{t('atRisk')}</Text>
       <Text style={styles.detail} numberOfLines={1}>
         {subscribers} {plural(subscribers, 'subscriber', 'subscribers')} · {t('paymentFailing')}

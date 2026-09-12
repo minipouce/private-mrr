@@ -126,7 +126,7 @@ export default function ProjectDetail() {
             {metrics.activeSubscribers}{' '}
             {plural(metrics.activeSubscribers, 'subscriber', 'subscribers')}
             {metrics.trials > 0 ? ` · ${metrics.trials} ${t('onTrial')}` : ''}
-            {metrics.compedSubscribers > 0
+            {(metrics.compedSubscribers ?? 0) > 0
               ? ` · ${metrics.compedSubscribers} ${t('compedSubscribers')}`
               : ''}
           </Text>
@@ -189,7 +189,9 @@ export default function ProjectDetail() {
         <ForecastRange projection={metrics.projection} currency={metrics.currency} />
         <Text style={styles.projectionHint}>
           {t('ofWhichCollected')} {moneyCompact(metrics.projection.ytdCents, metrics.currency)} ·{' '}
-          {t('projectedMrr')} {moneyCompact(metrics.projection.projectedYearEndMrrCents, metrics.currency)}
+          {metrics.projection.projectedYearEndMrrCents !== undefined
+            ? `${t('projectedMrr')} ${moneyCompact(metrics.projection.projectedYearEndMrrCents, metrics.currency)}`
+            : `${t('runRate')} ${moneyCompact(metrics.projection.runRateCents, metrics.currency)}`}
         </Text>
         <ForecastDriversLine projection={metrics.projection} currency={metrics.currency} />
       </Card>
