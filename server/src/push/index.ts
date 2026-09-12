@@ -19,17 +19,28 @@ export function normalizeLocale(value: unknown): Locale {
 
 const INTL_TAG: Record<Locale, string> = { en: 'en-US', fr: 'fr-FR' };
 
-const CURRENCY_FMT = new Map<Locale, Intl.NumberFormat>();
+const CURRENCY_FMT = new Map<string, Intl.NumberFormat>();
 
+/**
+ * Amount in a notification, with cents only when there are any.
+ *
+ * The notification is often the only place a payment is ever read: announcing
+ * "42 €" for 42.09 € collected states a figure that does not exist, and past 50
+ * cents the rounding claims more than was received. Mirrors the app's `money`,
+ * so the banner and the screen it opens agree.
+ */
 function money(cents: number, locale: Locale): string {
-  let fmt = CURRENCY_FMT.get(locale);
+  const digits = cents % 100 === 0 ? 0 : 2;
+  const key = `${locale}:${digits}`;
+  let fmt = CURRENCY_FMT.get(key);
   if (!fmt) {
     fmt = new Intl.NumberFormat(INTL_TAG[locale], {
       style: 'currency',
       currency: config.baseCurrency.toUpperCase(),
-      maximumFractionDigits: 0,
+      minimumFractionDigits: digits,
+      maximumFractionDigits: digits,
     });
-    CURRENCY_FMT.set(locale, fmt);
+    CURRENCY_FMT.set(key, fmt);
   }
   return fmt.format(cents / 100);
 }

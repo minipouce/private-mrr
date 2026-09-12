@@ -85,6 +85,24 @@ export function insertEvent(event: NewEvent, opts: { publish?: boolean } = {}): 
   return row;
 }
 
+/**
+ * Refund already recorded against a charge, in the charge's own currency.
+ *
+ * Stripe reports `amount_refunded` cumulatively: the second partial refund of a
+ * charge announces the total, not the increment. Recording that total again
+ * would deduct the first refund twice, so what is already booked is subtracted
+ * before inserting.
+ */
+export function refundedSoFar(projectId: string, chargeId: string): number {
+  const row = db
+    .prepare(
+      `SELECT COALESCE(SUM(-amount_cents), 0) AS total FROM events
+       WHERE project_id = ? AND stripe_object_id = ? AND kind = 'refund'`,
+    )
+    .get(projectId, chargeId) as { total: number };
+  return row.total;
+}
+
 export interface SubscriptionRow {
   id: string;
   project_id: string;

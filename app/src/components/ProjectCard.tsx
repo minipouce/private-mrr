@@ -5,6 +5,7 @@ import { money, moneyCompact, percent, signed } from '../lib/format';
 import type { Metrics } from '../api/types';
 import { ProjectLogo } from './ProjectLogo';
 import { GoalBar } from './GoalBar';
+import { AtRiskNote } from './AtRiskNote';
 import { t, plural } from '../i18n';
 
 /**
@@ -39,10 +40,18 @@ export function ProjectCard({
             {metrics.name}
           </Text>
         </View>
-        <Text style={styles.subs}>
-          {metrics.activeSubscribers}{' '}
-          {plural(metrics.activeSubscribers, 'subscriber', 'subscribers')}
-        </Text>
+        <View style={styles.subsBlock}>
+          <Text style={styles.subs}>
+            {metrics.activeSubscribers}{' '}
+            {plural(metrics.activeSubscribers, 'subscriber', 'subscribers')}
+          </Text>
+          <AtRiskNote
+            cents={metrics.atRiskMrrCents}
+            subscribers={metrics.atRiskSubscribers}
+            currency={metrics.currency}
+            compact
+          />
+        </View>
       </View>
 
       <View style={styles.figures}>
@@ -105,6 +114,7 @@ const styles = StyleSheet.create({
   identity: { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 },
   dot: { width: 9, height: 9, borderRadius: 4.5 },
   name: { ...type.body, color: colors.text, fontSize: 15, fontWeight: '600', flex: 1 },
+  subsBlock: { alignItems: 'flex-end', gap: 2 },
   subs: { ...type.caption, color: colors.textFaint, fontSize: 11 },
   figures: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: space.md },
   mrrBlock: { flex: 1, gap: 1 },

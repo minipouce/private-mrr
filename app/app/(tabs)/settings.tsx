@@ -14,7 +14,7 @@ import { LanguagePicker } from '../../src/components/LanguagePicker';
 import * as IntentLauncher from 'expo-intent-launcher';
 import * as Application from 'expo-application';
 import * as Device from 'expo-device';
-import { money, timeAgo } from '../../src/lib/format';
+import { moneyRounded, timeAgo } from '../../src/lib/format';
 import { ProjectLogo } from '../../src/components/ProjectLogo';
 import { GoalEditor } from '../../src/components/GoalEditor';
 import type { NotificationPrefs, ProjectInfo } from '../../src/api/types';
@@ -328,7 +328,7 @@ export default function Settings() {
 
               {pref.min_amount_cents > 0 && (
                 <Text style={styles.hint}>
-                  {t('minAmountHint', { amount: money(pref.min_amount_cents) })}
+                  {t('minAmountHint', { amount: moneyRounded(pref.min_amount_cents) })}
                 </Text>
               )}
 

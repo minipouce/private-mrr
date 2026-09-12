@@ -2,7 +2,13 @@ import type Stripe from 'stripe';
 import type { ProjectConfig } from '../config.js';
 import { stripeFor } from './client.js';
 import { invoicePaymentIntents } from './compat.js';
-import { insertEvent, getSubscription, upsertSubscription, type EventRow } from '../db/repo.js';
+import {
+  insertEvent,
+  getSubscription,
+  upsertSubscription,
+  refundedSoFar,
+  type EventRow,
+} from '../db/repo.js';
 import {
   eventFromCharge,
   eventFromInvoice,
@@ -11,6 +17,7 @@ import {
   normalizeSubscription,
   MRR_STATUSES,
 } from './normalize.js';
+import { applyResolvedDiscount } from './coupons.js';
 import { notifyEvent } from '../push/index.js';
 import { db } from '../db/index.js';
 
@@ -42,6 +49,29 @@ export async function ingestEvent(
 
   if (notify) await notifyEvent(row, project.name);
   return row;
+}
+
+/**
+ * Resolves the coupons a webhook payload does not carry.
+ *
+ * A subscription arrives with its customer unexpanded and its discounts reduced
+ * to ids, so `normalizeSubscription` cannot see a comped account. Left alone it
+ * enters MRR at list price until the hourly reconciliation corrects the stored
+ * figure — but the movement event emitted meanwhile keeps that price for good.
+ */
+async function withDiscounts(
+  project: ProjectConfig,
+  sub: Stripe.Subscription,
+  normalized: { mrr_cents: number; mrr_base_cents: number; amount_cents: number },
+): Promise<void> {
+  const stripe = stripeFor(project);
+  if (!stripe) return;
+  try {
+    await applyResolvedDiscount(stripe, project.id, sub, normalized);
+  } catch {
+    // An unreadable coupon must not cost us the event: reconciliation will
+    // correct the stored MRR within the hour.
+  }
 }
 
 async function handle(project: ProjectConfig, event: Stripe.Event): Promise<EventRow | null> {
@@ -89,12 +119,18 @@ async function handle(project: ProjectConfig, event: Stripe.Event): Promise<Even
 
     case 'charge.refunded': {
       const charge = object as unknown as Stripe.Charge;
-      return insertEvent(eventFromRefund(projectId, charge, event.id));
+      const row = eventFromRefund(projectId, charge, {
+        alreadyRefundedCents: refundedSoFar(projectId, charge.id),
+      });
+      // Nothing new to book: this refund is already in the ledger, booked by an
+      // earlier delivery or by the backfill.
+      return row ? insertEvent(row) : null;
     }
 
     case 'customer.subscription.created': {
       const sub = object as unknown as Stripe.Subscription;
       const normalized = normalizeSubscription(projectId, sub);
+      await withDiscounts(project, sub, normalized);
       upsertSubscription(normalized);
       const kind = sub.status === 'trialing' ? 'trial_started' : 'subscription_created';
       return insertEvent(
@@ -106,15 +142,17 @@ async function handle(project: ProjectConfig, event: Stripe.Event): Promise<Even
       const sub = object as unknown as Stripe.Subscription;
       const previous = getSubscription(projectId, sub.id);
       const normalized = normalizeSubscription(projectId, sub);
+      await withDiscounts(project, sub, normalized);
       upsertSubscription(normalized);
 
       const before = previous?.mrr_base_cents ?? 0;
       const delta = normalized.mrr_base_cents - before;
 
+      const wasBilling = previous ? MRR_STATUSES.includes(previous.status) : false;
+      const isBilling = MRR_STATUSES.includes(sub.status);
+
       // Trial converting to paid is a conversion, not a plain update.
-      const converted =
-        previous && !MRR_STATUSES.includes(previous.status) && MRR_STATUSES.includes(sub.status);
-      if (converted) {
+      if (previous && !wasBilling && isBilling) {
         return insertEvent(
           eventFromSubscription(
             projectId,
@@ -123,6 +161,16 @@ async function handle(project: ProjectConfig, event: Stripe.Event): Promise<Even
             normalized.mrr_base_cents,
             event.id,
           ),
+        );
+      }
+
+      // Leaving the billing statuses altogether is churn, not a downgrade.
+      // Dunning ends on `unpaid`, without Stripe ever sending
+      // `customer.subscription.deleted`: booked as an update, that lost MRR
+      // would sit under "contraction" and never appear as churn.
+      if (previous && wasBilling && !isBilling) {
+        return insertEvent(
+          eventFromSubscription(projectId, sub, 'subscription_canceled', -before, event.id),
         );
       }
 

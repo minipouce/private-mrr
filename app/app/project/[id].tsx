@@ -8,13 +8,15 @@ import { useLocalSearchParams, router } from 'expo-router';
 import { useLive } from '../../src/hooks/useLive';
 import { api } from '../../src/api/client';
 import { colors, radius, space, type } from '../../src/theme/index';
-import { money, moneyCompact, percent, signed, customerLabel } from '../../src/lib/format';
+import { money, moneyCompact, moneyRounded, percent, signed, customerLabel } from '../../src/lib/format';
 import { Chart } from '../../src/components/Chart';
 import { Bars } from '../../src/components/Bars';
 import { EventRow } from '../../src/components/EventRow';
 import { Card, SectionTitle, Stat, EmptyState, Divider } from '../../src/components/ui';
 import { ProjectLogo } from '../../src/components/ProjectLogo';
 import { GoalBar } from '../../src/components/GoalBar';
+import { AtRiskNote } from '../../src/components/AtRiskNote';
+import { ForecastRange, ForecastDriversLine } from '../../src/components/ForecastNote';
 import type { DailyPoint, MonthlyPoint, Metrics, Subscriber } from '../../src/api/types';
 import { t, plural } from '../../src/i18n';
 
@@ -124,9 +126,18 @@ export default function ProjectDetail() {
             {metrics.activeSubscribers}{' '}
             {plural(metrics.activeSubscribers, 'subscriber', 'subscribers')}
             {metrics.trials > 0 ? ` · ${metrics.trials} ${t('onTrial')}` : ''}
+            {metrics.compedSubscribers > 0
+              ? ` · ${metrics.compedSubscribers} ${t('compedSubscribers')}`
+              : ''}
           </Text>
         </View>
       </View>
+
+      <AtRiskNote
+        cents={metrics.atRiskMrrCents}
+        subscribers={metrics.atRiskSubscribers}
+        currency={metrics.currency}
+      />
 
       {projectGoal && (
         <Card style={{ marginBottom: space.md, borderColor: colors.border }}>
@@ -173,12 +184,14 @@ export default function ProjectDetail() {
       <Card style={styles.projectionCard}>
         <Text style={styles.projectionLabel}>{t('projectionEndOf')} {new Date().getFullYear()}</Text>
         <Text style={styles.projectionValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
-          {money(metrics.projection.projectedYearEndCents, metrics.currency)}
+          {moneyRounded(metrics.projection.projectedYearEndCents, metrics.currency)}
         </Text>
+        <ForecastRange projection={metrics.projection} currency={metrics.currency} />
         <Text style={styles.projectionHint}>
           {t('ofWhichCollected')} {moneyCompact(metrics.projection.ytdCents, metrics.currency)} ·{' '}
-          {t('runRate')} {moneyCompact(metrics.projection.runRateCents, metrics.currency)}
+          {t('projectedMrr')} {moneyCompact(metrics.projection.projectedYearEndMrrCents, metrics.currency)}
         </Text>
+        <ForecastDriversLine projection={metrics.projection} currency={metrics.currency} />
       </Card>
 
       <SectionTitle>{t('mrrMovementThisMonth')}</SectionTitle>

@@ -2,38 +2,18 @@ import type Stripe from 'stripe';
 import type { ProjectConfig } from '../config.js';
 import { stripeFor } from './client.js';
 import { db } from '../db/index.js';
-import { insertEvent, upsertSubscription } from '../db/repo.js';
+import { insertEvent, upsertSubscription, refundedSoFar } from '../db/repo.js';
 import {
   eventFromCharge,
   eventFromInvoice,
+  eventFromRefund,
   eventFromSubscription,
   normalizeSubscription,
-  subscriptionEconomics,
   MRR_STATUSES,
 } from './normalize.js';
-import { toBaseCents, toInternalCents } from '../lib/money.js';
 import { markSyncError } from './ingest.js';
 import { subscriptionProductName } from './products.js';
-import { discountFactor } from './coupons.js';
-
-/**
- * Applies resolved discounts to a normalised subscription's MRR.
- * Coupons are not readable from the subscription object alone: they need a
- * separate resolution, memoised by `coupons.ts`.
- */
-async function applyDiscount(
-  stripe: import('stripe').default,
-  projectId: string,
-  sub: import('stripe').default.Subscription,
-  normalized: { mrr_cents: number; mrr_base_cents: number; amount_cents: number },
-): Promise<void> {
-  const factor = await discountFactor(stripe, projectId, sub, normalized.mrr_cents);
-  if (factor === 1) return;
-
-  normalized.mrr_cents = Math.round(normalized.mrr_cents * factor);
-  normalized.mrr_base_cents = Math.round(normalized.mrr_base_cents * factor);
-  normalized.amount_cents = Math.round(normalized.amount_cents * factor);
-}
+import { applyResolvedDiscount, movementMrrBaseCents } from './coupons.js';
 
 /**
  * Fills in an existing event with columns added after it was imported.
@@ -119,18 +99,21 @@ export async function backfillProject(
       const normalized = normalizeSubscription(project.id, sub);
       normalized.product_name =
         normalized.product_name ?? (await subscriptionProductName(stripe, project.id, sub));
-      await applyDiscount(stripe, project.id, sub, normalized);
+      await applyResolvedDiscount(stripe, project.id, sub, normalized);
       upsertSubscription(normalized);
       subCount++;
 
-      const econ = subscriptionEconomics(sub);
-      const mrrBase = toBaseCents(econ.mrrCents, econ.currency);
+      // Discounts resolved, and zero while the subscription has never billed:
+      // the list price would otherwise be booked as new business for a comped
+      // account or an abandoned checkout.
+      const mrrBase = await movementMrrBaseCents(stripe, project.id, sub);
 
       if ((sub.start_date ?? sub.created) >= from) {
         const created = eventFromSubscription(
           project.id,
           sub,
-          'subscription_created',
+          // Same distinction as the live path: a trial is not a signup.
+          sub.status === 'trialing' ? 'trial_started' : 'subscription_created',
           mrrBase,
           `backfill:sub_created:${sub.id}`,
         );
@@ -184,27 +167,13 @@ export async function backfillProject(
       if (insertEvent(row, { publish: false })) eventCount++;
 
       if ((charge.amount_refunded ?? 0) > 0) {
-        const currency = charge.currency ?? 'eur';
-        const cents = toInternalCents(charge.amount_refunded, currency);
-        const refund = {
-          project_id: project.id,
-          stripe_event_id: `backfill:refund:${charge.id}`,
-          stripe_object_id: charge.id,
-          kind: 'refund' as const,
-          amount_cents: -cents,
-          currency,
-          amount_base_cents: -toBaseCents(cents, currency),
-          mrr_delta_cents: 0,
-          customer_id: typeof charge.customer === 'string' ? charge.customer : (charge.customer?.id ?? null),
-          customer_email: charge.billing_details?.email ?? null,
-          customer_name: charge.billing_details?.name ?? null,
-          subscription_id: null,
-          payment_intent: null,
-          billing_reason: null,
-          description: charge.description ?? 'Remboursement',
-          occurred_at: charge.created,
-        };
-        if (insertEvent(refund, { publish: false })) eventCount++;
+        // Same builder as the webhook, and the same guard: what a live
+        // `charge.refunded` already booked must not be deducted a second time.
+        const refund = eventFromRefund(project.id, charge, {
+          alreadyRefundedCents: refundedSoFar(project.id, charge.id),
+          occurredAt: charge.created,
+        });
+        if (refund && insertEvent(refund, { publish: false })) eventCount++;
       }
     }
 
@@ -244,7 +213,7 @@ export async function reconcileProject(project: ProjectConfig): Promise<number> 
         const normalized = normalizeSubscription(project.id, sub);
         normalized.product_name =
           normalized.product_name ?? (await subscriptionProductName(stripe, project.id, sub));
-        await applyDiscount(stripe, project.id, sub, normalized);
+        await applyResolvedDiscount(stripe, project.id, sub, normalized);
         upsertSubscription(normalized);
         count++;
       }

@@ -20,9 +20,11 @@ function sample(overrides: Partial<EventRow>): EventRow {
     stripe_event_id: 'evt_test',
     stripe_object_id: 'in_test',
     kind: 'payment',
-    amount_cents: 4900,
+    // Deliberately not a round amount: it is what a converted payment looks
+    // like, and it shows whether the copy carries the cents.
+    amount_cents: 4220,
     currency: 'eur',
-    amount_base_cents: 4900,
+    amount_base_cents: 4220,
     mrr_delta_cents: 0,
     customer_id: 'cus_test',
     customer_email: 'ada@example.com',
@@ -47,7 +49,7 @@ const CASES: { label: string; event: EventRow }[] = [
   { label: 'downgrade', event: sample({ kind: 'subscription_updated', mrr_delta_cents: -1500 }) },
   { label: 'cancellation', event: sample({ kind: 'subscription_canceled', mrr_delta_cents: -4900 }) },
   { label: 'payment failed', event: sample({ kind: 'payment_failed' }) },
-  { label: 'refund', event: sample({ kind: 'refund', amount_base_cents: -4900 }) },
+  { label: 'refund', event: sample({ kind: 'refund', amount_base_cents: -4220 }) },
 ];
 
 let missing = 0;

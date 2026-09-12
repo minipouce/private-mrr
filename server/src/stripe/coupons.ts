@@ -1,4 +1,6 @@
 import type Stripe from 'stripe';
+import { toBaseCents } from '../lib/money.js';
+import { subscriptionEconomics } from './normalize.js';
 
 /**
  * Resolves the discounts that apply to a subscription.
@@ -121,4 +123,54 @@ export async function discountFactor(
   }
 
   return Math.max(0, Math.min(1, remaining / monthlyCents));
+}
+
+/**
+ * Applies the resolved discounts to an already normalised subscription.
+ *
+ * `normalizeSubscription` only sees the discounts the object itself carries,
+ * which recent API versions reduce to an id — and a webhook payload leaves the
+ * customer unexpanded, hiding a customer-level discount entirely. Without this
+ * second pass a comped account enters MRR at list price.
+ */
+export async function applyResolvedDiscount(
+  stripe: Stripe,
+  projectId: string,
+  sub: Stripe.Subscription,
+  normalized: { mrr_cents: number; mrr_base_cents: number; amount_cents: number },
+): Promise<void> {
+  const factor = await discountFactor(stripe, projectId, sub, normalized.mrr_cents);
+  if (factor === 1) return;
+
+  normalized.mrr_cents = Math.round(normalized.mrr_cents * factor);
+  normalized.mrr_base_cents = Math.round(normalized.mrr_base_cents * factor);
+  normalized.amount_cents = Math.round(normalized.amount_cents * factor);
+}
+
+/** Statuses under which a subscription has never billed a cent. */
+const NEVER_BILLED = ['trialing', 'incomplete', 'incomplete_expired'];
+
+/**
+ * What a subscription weighs in an MRR movement event, in the base currency:
+ * its discounted monthly amount, whatever its status today.
+ *
+ * Zero while it has never billed. Booking a trial or an abandoned checkout at
+ * list price invents new business the account never had, and its cancellation
+ * then invents the churn that offsets it — in another month, so the two never
+ * cancel out on screen.
+ *
+ * Deliberately recomputed rather than read from the stored subscription: that
+ * one is zeroed the moment the subscription stops billing, while a cancellation
+ * event has to carry the MRR being lost.
+ */
+export async function movementMrrBaseCents(
+  stripe: Stripe,
+  projectId: string,
+  sub: Stripe.Subscription,
+): Promise<number> {
+  if (NEVER_BILLED.includes(sub.status)) return 0;
+
+  const econ = subscriptionEconomics(sub);
+  const factor = await discountFactor(stripe, projectId, sub, econ.mrrCents);
+  return toBaseCents(Math.round(econ.mrrCents * factor), econ.currency);
 }

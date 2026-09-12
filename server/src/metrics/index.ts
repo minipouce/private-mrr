@@ -1,61 +1,24 @@
 import { db } from '../db/index.js';
 import { config } from '../config.js';
-import { MRR_STATUSES, TRIAL_STATUSES } from '../stripe/normalize.js';
+import { MRR_STATUSES, AT_RISK_STATUSES, TRIAL_STATUSES } from '../stripe/normalize.js';
 import { hasLogo } from '../stripe/branding.js';
 import { globalGoal, goalProgress, type GoalKind } from '../lib/settings.js';
+import { forecast, type Forecast } from './forecast.js';
+import {
+  sec,
+  projectFilter,
+  startOfDay,
+  startOfMonth,
+  startOfYear,
+  addMonths,
+} from './scope.js';
 
 const MRR_LIST = MRR_STATUSES.map((s) => `'${s}'`).join(',');
+const AT_RISK_LIST = AT_RISK_STATUSES.map((s) => `'${s}'`).join(',');
 const TRIAL_LIST = TRIAL_STATUSES.map((s) => `'${s}'`).join(',');
 
 /** Cash collected: payments and refunds, the latter as negative amounts. */
 const CASH_KINDS = `('payment','refund')`;
-
-const sec = (d: Date) => Math.floor(d.getTime() / 1000);
-
-/**
- * Builds the project filter for a query.
- *
- * With no id, the whole table is not summed: the scope narrows to projects
- * flagged `include_in_totals`. An excluded project stays viewable on its own, it
- * simply no longer weighs on the consolidated figures.
- */
-function projectFilter(projectId?: string): { clause: string; args: string[] } {
-  if (projectId) return { clause: 'project_id = ?', args: [projectId] };
-
-  const rows = db
-    .prepare('SELECT id FROM projects WHERE include_in_totals = 1')
-    .all() as { id: string }[];
-
-  if (rows.length === 0) return { clause: '1 = 0', args: [] };
-  return {
-    clause: `project_id IN (${rows.map(() => '?').join(',')})`,
-    args: rows.map((r) => r.id),
-  };
-}
-
-function startOfDay(ref = new Date()): Date {
-  const d = new Date(ref);
-  d.setHours(0, 0, 0, 0);
-  return d;
-}
-
-function startOfMonth(ref = new Date()): Date {
-  const d = startOfDay(ref);
-  d.setDate(1);
-  return d;
-}
-
-function startOfYear(ref = new Date()): Date {
-  const d = startOfMonth(ref);
-  d.setMonth(0);
-  return d;
-}
-
-function addMonths(ref: Date, n: number): Date {
-  const d = new Date(ref);
-  d.setMonth(d.getMonth() + n);
-  return d;
-}
 
 /** Cash collected over a window, optionally narrowed to one project. */
 function cashBetween(fromSec: number, toSec: number, projectId?: string): number {
@@ -83,11 +46,25 @@ function currentMrr(projectId?: string): number {
   return row.total;
 }
 
+/**
+ * Subscriber counts.
+ *
+ * A billing subscription weighing zero — comped, a 100% coupon, a free plan —
+ * is not a customer for the purposes of this count. Counting it inflates the
+ * headline while adding nothing to MRR, so it is tallied apart.
+ */
 function counts(projectId?: string) {
   const f = projectFilter(projectId);
   const active = db
     .prepare(
-      `SELECT COUNT(*) AS n FROM subscriptions WHERE status IN (${MRR_LIST}) AND ${f.clause}`,
+      `SELECT COUNT(*) AS n FROM subscriptions
+       WHERE status IN (${MRR_LIST}) AND mrr_base_cents > 0 AND ${f.clause}`,
+    )
+    .get(...f.args) as { n: number };
+  const comped = db
+    .prepare(
+      `SELECT COUNT(*) AS n FROM subscriptions
+       WHERE status IN (${MRR_LIST}) AND mrr_base_cents = 0 AND ${f.clause}`,
     )
     .get(...f.args) as { n: number };
   const trials = db
@@ -96,7 +73,23 @@ function counts(projectId?: string) {
     )
     .get(...f.args) as { n: number };
 
-  return { activeSubscribers: active.n, trials: trials.n };
+  // Counted inside `active`, not alongside it: these subscriptions are billing
+  // and weigh in MRR, they are simply failing to collect right now.
+  const atRisk = db
+    .prepare(
+      `SELECT COUNT(*) AS n, COALESCE(SUM(mrr_base_cents), 0) AS cents
+       FROM subscriptions
+       WHERE status IN (${AT_RISK_LIST}) AND mrr_base_cents > 0 AND ${f.clause}`,
+    )
+    .get(...f.args) as { n: number; cents: number };
+
+  return {
+    activeSubscribers: active.n,
+    compedSubscribers: comped.n,
+    trials: trials.n,
+    atRiskSubscribers: atRisk.n,
+    atRiskMrrCents: atRisk.cents,
+  };
 }
 
 /**
@@ -135,51 +128,6 @@ function mrrMovement(fromSec: number, toSec: number, projectId?: string) {
     contractionCents: row.contraction,
     churnedCents: row.churned,
     netCents: row.new_mrr + row.expansion + row.contraction + row.churned,
-  };
-}
-
-/**
- * Year-end projection.
- *
- * Two components: recurring revenue, extrapolated from current MRR across the
- * remaining months, and one-off revenue, extrapolated from the daily average
- * observed over 90 days. The current month counts only pro rata for the days
- * left, so what is already collected is not counted twice.
- */
-function yearProjection(projectId?: string) {
-  const now = new Date();
-  const ytd = cashBetween(sec(startOfYear(now)), sec(now), projectId);
-  const mrr = currentMrr(projectId);
-
-  const endOfYear = new Date(now.getFullYear() + 1, 0, 1);
-  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-  const remainingInMonth = daysInMonth - now.getDate();
-  const fullMonthsLeft = 11 - now.getMonth();
-
-  const recurringLeft =
-    mrr * fullMonthsLeft + Math.round((mrr * remainingInMonth) / daysInMonth);
-
-  // One-off: 90-day average of payments not attached to a subscription.
-  const ninetyDaysAgo = sec(new Date(now.getTime() - 90 * 86_400_000));
-  const fOneOff = projectFilter(projectId);
-  const oneOffRow = db
-    .prepare(
-      `SELECT COALESCE(SUM(amount_base_cents), 0) AS total
-       FROM events
-       WHERE kind IN ${CASH_KINDS} AND subscription_id IS NULL
-         AND occurred_at >= ? AND ${fOneOff.clause}`,
-    )
-    .get(ninetyDaysAgo, ...fOneOff.args) as { total: number };
-
-  const daysLeft = Math.max(0, Math.round((endOfYear.getTime() - now.getTime()) / 86_400_000));
-  const oneOffLeft = Math.round((oneOffRow.total / 90) * daysLeft);
-
-  return {
-    ytdCents: ytd,
-    projectedYearEndCents: ytd + recurringLeft + oneOffLeft,
-    projectedRecurringCents: recurringLeft,
-    projectedOneOffCents: oneOffLeft,
-    runRateCents: mrr * 12,
   };
 }
 
@@ -238,10 +186,17 @@ export interface ProjectMetrics {
   last30Cents: number;
   prevMonthCents: number;
   mtdVsPrevPct: number | null;
+  /** Subscribers actually paying: a billing subscription worth more than zero. */
   activeSubscribers: number;
+  /** Billing but worth zero: comped, 100% coupon, free plan. */
+  compedSubscribers: number;
   trials: number;
+  /** Subscribers billing but whose payment is failing (`past_due`). */
+  atRiskSubscribers: number;
+  /** Share of `mrrCents` carried by those subscribers. */
+  atRiskMrrCents: number;
   movement: ReturnType<typeof mrrMovement>;
-  projection: ReturnType<typeof yearProjection>;
+  projection: Forecast;
   lastEventAt: number | null;
 }
 
@@ -255,6 +210,7 @@ function buildMetrics(
   const prevStart = addMonths(monthStart, -1);
 
   const mtd = cashBetween(sec(monthStart), sec(now), projectId);
+  const ytd = cashBetween(sec(startOfYear(now)), sec(now), projectId);
 
   // Like-for-like comparison: the same number of days elapsed last month.
   const prevSameSpan = cashBetween(
@@ -264,7 +220,8 @@ function buildMetrics(
   );
 
   const mrr = currentMrr(projectId);
-  const { activeSubscribers, trials } = counts(projectId);
+  const { activeSubscribers, compedSubscribers, trials, atRiskSubscribers, atRiskMrrCents } =
+    counts(projectId);
 
   const fLast = projectFilter(projectId);
   const lastEvent = db
@@ -280,15 +237,18 @@ function buildMetrics(
     arrCents: mrr * 12,
     todayCents: cashBetween(sec(startOfDay(now)), sec(now), projectId),
     mtdCents: mtd,
-    ytdCents: cashBetween(sec(startOfYear(now)), sec(now), projectId),
+    ytdCents: ytd,
     last30Cents: cashBetween(sec(new Date(now.getTime() - 30 * 86_400_000)), sec(now), projectId),
     prevMonthCents: cashBetween(sec(prevStart), sec(monthStart), projectId),
     mtdVsPrevPct:
       prevSameSpan > 0 ? Math.round(((mtd - prevSameSpan) / prevSameSpan) * 1000) / 10 : null,
     activeSubscribers,
+    compedSubscribers,
     trials,
+    atRiskSubscribers,
+    atRiskMrrCents,
     movement: mrrMovement(sec(monthStart), sec(now), projectId),
-    projection: yearProjection(projectId),
+    projection: forecast(ytd, projectId),
     lastEventAt: lastEvent.last,
   };
 }

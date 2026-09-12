@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { colors, radius, space, type } from '../theme';
-import { money, moneyCompact } from '../lib/format';
+import { moneyCompact, moneyRounded } from '../lib/format';
 import type { GoalProgress } from '../api/types';
 import { t } from '../i18n';
 
@@ -45,8 +45,8 @@ export function GoalBar({
       {!compact && (
         <Text style={styles.remaining}>
           {reached
-            ? t('goalExceededBy', { amount: money(goal.currentCents - goal.targetCents, currency) })
-            : t('goalRemaining', { amount: money(goal.remainingCents, currency) })}
+            ? t('goalExceededBy', { amount: moneyRounded(goal.currentCents - goal.targetCents, currency) })
+            : t('goalRemaining', { amount: moneyRounded(goal.remainingCents, currency) })}
         </Text>
       )}
     </View>

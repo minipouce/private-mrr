@@ -7,20 +7,23 @@
  */
 import { intlLocale, t } from '../i18n';
 
-// Keyed by language as well as currency: a cache keyed on currency alone would
-// keep serving the formatter built at startup after a language change.
-const FULL = new Map<string, Intl.NumberFormat>();
+// Keyed by language and precision as well as currency: a cache keyed on
+// currency alone would keep serving the formatter built at startup after a
+// language change, and the two precisions have to coexist.
+const FORMATTERS = new Map<string, Intl.NumberFormat>();
 
-function fullFormatter(currency: string): Intl.NumberFormat {
-  const key = `${intlLocale()}:${currency.toUpperCase()}`;
-  let fmt = FULL.get(key);
+function formatter(currency: string, digits: 0 | 2): Intl.NumberFormat {
+  const code = currency.toUpperCase();
+  const key = `${intlLocale()}:${code}:${digits}`;
+  let fmt = FORMATTERS.get(key);
   if (!fmt) {
     fmt = new Intl.NumberFormat(intlLocale(), {
       style: 'currency',
-      currency: currency.toUpperCase(),
-      maximumFractionDigits: 0,
+      currency: code,
+      minimumFractionDigits: digits,
+      maximumFractionDigits: digits,
     });
-    FULL.set(key, fmt);
+    FORMATTERS.set(key, fmt);
   }
   return fmt;
 }
@@ -42,7 +45,7 @@ function symbolFor(currency: string): string {
  * by testing for French would need editing every time a language is added.
  */
 function symbolLeads(currency: string): boolean {
-  const probe = fullFormatter(currency).format(1).trim();
+  const probe = formatter(currency, 0).format(1).trim();
   return !/^[\d\u2212+-]/.test(probe);
 }
 
@@ -54,9 +57,28 @@ function assemble(sign: string, digits: string, scale: string, currency: string)
     : `${sign}${digits}\u202f${scale}${symbol}`;
 }
 
-/** Full amount: "€110,251". */
+/**
+ * Exact amount, with cents only when there are any: "€2,279.75", "€27,357".
+ *
+ * Rounding to the unit was losing real money on screen: a $49 payment converts
+ * to 42.09 € and was displayed "42 €", and above 50 cents the rounding went the
+ * other way and announced more than was collected. Cents are therefore shown
+ * whenever they are non-zero — and dropped when they are, so a round amount
+ * stays as short as it was.
+ *
+ * Reserved for figures that are exact by nature (MRR, cash collected, an MRR
+ * movement). Estimates go through `moneyRounded`.
+ */
 export function money(cents: number, currency = 'eur'): string {
-  return fullFormatter(currency).format(cents / 100);
+  return formatter(currency, cents % 100 === 0 ? 0 : 2).format(cents / 100);
+}
+
+/**
+ * Deliberately rounded amount, for a figure whose cents mean nothing: a
+ * projection, a goal, a notification threshold.
+ */
+export function moneyRounded(cents: number, currency = 'eur'): string {
+  return formatter(currency, 0).format(cents / 100);
 }
 
 /**
@@ -72,8 +94,9 @@ export function moneyCompact(cents: number, currency = 'eur'): string {
   const sign = units < 0 ? '\u2212' : '';
 
   // Below 10,000, abbreviating loses more information than it saves in space:
-  // "€3,669" reads better than "€3.7k".
-  if (abs < 10_000) return fullFormatter(currency).format(units);
+  // "€3,669" reads better than "€3.7k". Rounded, like the abbreviation itself:
+  // this family is the glanceable one, cents belong to `money`.
+  if (abs < 10_000) return formatter(currency, 0).format(units);
 
   // The decimal separator follows the language: a comma in French, a period in
   // English. Hard-coding it produced "131,7 k€" in an English interface.
@@ -92,11 +115,7 @@ export function moneyCompact(cents: number, currency = 'eur'): string {
 
 /** Amount with cents, for individual event rows. */
 export function moneyPrecise(cents: number, currency = 'eur'): string {
-  return new Intl.NumberFormat(intlLocale(), {
-    style: 'currency',
-    currency: currency.toUpperCase(),
-    minimumFractionDigits: 2,
-  }).format(cents / 100);
+  return formatter(currency, 2).format(cents / 100);
 }
 
 /** Signed delta: "+€9,701" / "−€251". */

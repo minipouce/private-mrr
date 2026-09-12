@@ -32,12 +32,40 @@ export interface MrrMovement {
   netCents: number;
 }
 
+/** What the forecast measured, so the interface can show its own assumptions. */
+export interface ForecastDrivers {
+  /** Monthly churn on paying subscriptions, between 0 and 1. */
+  churnRate: number;
+  /** Where churn is heading, in points per month. Zero when unreadable. */
+  churnTrendPct: number;
+  /** Months of churn history behind the rate. */
+  churnMonthsObserved: number;
+  /** Cancellations behind the rate. Each one is worth roughly `churnRate / this`. */
+  churnLossEvents: number;
+  /** True when the project has too few losses of its own and uses the consolidated rate. */
+  churnBorrowed: boolean;
+  newBusinessCents: number;
+  newBusinessTrendCents: number;
+  oneOffCents: number;
+  oneOffTrendCents: number;
+  /** Full months observed. Below 3, nothing is extrapolated. */
+  monthsObserved: number;
+}
+
 export interface Projection {
   ytdCents: number;
+  /** Expected: the base decaying at the measured churn, plus a typical month of sales. */
   projectedYearEndCents: number;
+  /** Existing base only, no new customer at all. */
+  lowCents: number;
+  /** New business following its trend rather than its median. */
+  highCents: number;
   projectedRecurringCents: number;
   projectedOneOffCents: number;
   runRateCents: number;
+  projectedYearEndMrrCents: number;
+  drivers: ForecastDrivers;
+  months: { month: string; cashCents: number; mrrCents: number }[];
 }
 
 export interface GoalProgress {
@@ -62,8 +90,15 @@ export interface Metrics {
   last30Cents: number;
   prevMonthCents: number;
   mtdVsPrevPct: number | null;
+  /** Subscribers actually paying: a billing subscription worth more than zero. */
   activeSubscribers: number;
+  /** Billing but worth zero: comped, 100% coupon, free plan. */
+  compedSubscribers: number;
   trials: number;
+  /** Subscribers billing but whose payment is failing (`past_due`). */
+  atRiskSubscribers: number;
+  /** Share of `mrrCents` carried by those subscribers. */
+  atRiskMrrCents: number;
   movement: MrrMovement;
   projection: Projection;
   lastEventAt: number | null;

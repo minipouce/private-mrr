@@ -5,6 +5,15 @@ import type { NewEvent, NewSubscription, EventKind } from '../db/repo.js';
 
 /** Statuses that contribute to billed MRR. */
 export const MRR_STATUSES = ['active', 'past_due'];
+/**
+ * Subset of `MRR_STATUSES` whose payment is currently failing.
+ *
+ * `past_due` keeps weighing in MRR, because Stripe is still retrying and most
+ * of these come back. But it is money not collected: the metrics expose it
+ * separately so the interface can flag it rather than let it hide inside the
+ * headline figure.
+ */
+export const AT_RISK_STATUSES = ['past_due'];
 /** Trial statuses: tracked separately, they generate no revenue yet. */
 export const TRIAL_STATUSES = ['trialing'];
 
@@ -262,24 +271,40 @@ export function eventFromCharge(
   };
 }
 
+/**
+ * Refund event, carrying only what is not yet booked for this charge.
+ *
+ * `amount_refunded` is cumulative, and the same refund reaches us by two roads:
+ * the `charge.refunded` webhook and a replayed backfill. Neither the Stripe
+ * event id nor the payment-intent index separates them — that index only covers
+ * payments — so the guard is the amount already recorded, passed in by the
+ * caller. Returns `null` when there is nothing new to book.
+ *
+ * The event id is derived from the charge and its refunded total rather than
+ * from the Stripe event, so a redelivery lands on the same row.
+ */
 export function eventFromRefund(
   projectId: string,
   charge: Stripe.Charge,
-  stripeEventId: string | null,
-): NewEvent {
+  opts: { alreadyRefundedCents: number; occurredAt?: number },
+): NewEvent | null {
   const currency = charge.currency ?? 'eur';
-  const cents = toInternalCents(charge.amount_refunded ?? 0, currency);
+  const total = toInternalCents(charge.amount_refunded ?? 0, currency);
+  const cents = total - opts.alreadyRefundedCents;
+  if (cents <= 0) return null;
+
   return {
-    ...baseEvent(projectId, 'refund', charge.id, charge.created, stripeEventId),
+    ...baseEvent(projectId, 'refund', charge.id, charge.created, `refund:${charge.id}:${total}`),
     // Negative amount, so the ledger stays summable without special handling.
     amount_cents: -cents,
     currency,
     amount_base_cents: -toBaseCents(cents, currency),
     ...customerFields(charge.customer),
     customer_email: charge.billing_details?.email ?? null,
+    customer_name: charge.billing_details?.name ?? null,
     payment_intent: chargePaymentIntent(charge),
     description: charge.description ?? 'Remboursement',
-    occurred_at: Math.floor(Date.now() / 1000),
+    occurred_at: opts.occurredAt ?? Math.floor(Date.now() / 1000),
   };
 }
 

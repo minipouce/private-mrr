@@ -8,7 +8,7 @@ import { router } from 'expo-router';
 import { useLive } from '../../src/hooks/useLive';
 import { api } from '../../src/api/client';
 import { colors, space, type, radius } from '../../src/theme/index';
-import { money, moneyCompact, percent, signed } from '../../src/lib/format';
+import { money, moneyCompact, moneyRounded, percent, signed } from '../../src/lib/format';
 import { Chart } from '../../src/components/Chart';
 import { Bars } from '../../src/components/Bars';
 import { LiveBadge } from '../../src/components/LiveBadge';
@@ -16,6 +16,8 @@ import { ProjectCard } from '../../src/components/ProjectCard';
 import { EventRow } from '../../src/components/EventRow';
 import { Card, SectionTitle, Stat, EmptyState } from '../../src/components/ui';
 import { GoalBar } from '../../src/components/GoalBar';
+import { AtRiskNote } from '../../src/components/AtRiskNote';
+import { ForecastRange, ForecastDriversLine } from '../../src/components/ForecastNote';
 import type { DailyPoint, MonthlyPoint } from '../../src/api/types';
 import { t, plural } from '../../src/i18n';
 
@@ -125,6 +127,12 @@ export default function Dashboard() {
         </View>
       </View>
 
+      <AtRiskNote
+        cents={m.atRiskMrrCents}
+        subscribers={m.atRiskSubscribers}
+        currency={m.currency}
+      />
+
       {m.goal && (
         <Card style={styles.goalCard}>
           <GoalBar goal={m.goal} currency={m.currency} />
@@ -164,7 +172,11 @@ export default function Dashboard() {
           <Stat
             label={t('sinceJanuary')}
             value={moneyCompact(m.ytdCents, m.currency)}
-            hint={`${m.activeSubscribers} ${t('activeSubscribers')}`}
+            hint={
+              m.compedSubscribers > 0
+                ? `${m.activeSubscribers} ${t('activeSubscribers')} · ${m.compedSubscribers} ${t('compedSubscribers')}`
+                : `${m.activeSubscribers} ${t('activeSubscribers')}`
+            }
           />
         </Card>
       </View>
@@ -175,8 +187,9 @@ export default function Dashboard() {
           <Text style={styles.projectionHint}>{t('estimate')}</Text>
         </View>
         <Text style={styles.projectionValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
-          {money(m.projection.projectedYearEndCents, m.currency)}
+          {moneyRounded(m.projection.projectedYearEndCents, m.currency)}
         </Text>
+        <ForecastRange projection={m.projection} currency={m.currency} />
         <View style={styles.projectionBreak}>
           <View style={styles.projectionItem}>
             <Text style={styles.projectionItemValue}>{moneyCompact(m.projection.ytdCents, m.currency)}</Text>
@@ -195,6 +208,7 @@ export default function Dashboard() {
             <Text style={styles.projectionItemLabel}>{t('oneOffEstimate')}</Text>
           </View>
         </View>
+        <ForecastDriversLine projection={m.projection} currency={m.currency} />
       </Card>
 
       <SectionTitle>{t('mrrMovement')}</SectionTitle>
