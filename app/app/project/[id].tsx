@@ -129,6 +129,9 @@ export default function ProjectDetail() {
             {(metrics.compedSubscribers ?? 0) > 0
               ? ` · ${metrics.compedSubscribers} ${t('compedSubscribers')}`
               : ''}
+            {(metrics.promoSubscribers ?? 0) > 0
+              ? ` · ${metrics.promoSubscribers} ${t('onPromo')}`
+              : ''}
           </Text>
         </View>
       </View>

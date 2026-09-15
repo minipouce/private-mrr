@@ -17,15 +17,106 @@ import { MRR_STATUSES } from './normalize.js';
  * fallback for a subscription too young to have been billed yet.
  */
 
-/** Net of an invoice line: its amount less the discounts applied to it. */
-function lineNet(line: Stripe.InvoiceLineItem): number {
+/**
+ * Net of an invoice line: its amount, less only the discounts that will still
+ * be there next period.
+ *
+ * A coupon good for the first invoice only, or one whose window has closed,
+ * says nothing about what the subscription is worth from now on. Subtracting it
+ * would book a one-off welcome offer as a permanent price cut.
+ */
+function lineNet(
+  line: Stripe.InvoiceLineItem,
+  durable: Set<string>,
+): { recurring: number; current: number } {
   const raw = line as unknown as {
     amount?: number;
-    discount_amounts?: { amount?: number }[] | null;
-    proration?: boolean;
+    discount_amounts?: { amount?: number; discount?: string | { id?: string } }[] | null;
   };
-  const discounts = (raw.discount_amounts ?? []).reduce((a, d) => a + (d.amount ?? 0), 0);
-  return (raw.amount ?? 0) - discounts;
+
+  let all = 0;
+  let lasting = 0;
+  for (const entry of raw.discount_amounts ?? []) {
+    const amount = entry.amount ?? 0;
+    all += amount;
+    const id = typeof entry.discount === 'string' ? entry.discount : entry.discount?.id;
+    if (id && durable.has(id)) lasting += amount;
+  }
+
+  const amount = raw.amount ?? 0;
+  return { recurring: amount - lasting, current: amount - all };
+}
+
+/**
+ * Which of an invoice's discounts will apply again next period.
+ *
+ * `forever` always will. `once` never will — it was spent on this invoice.
+ * `repeating` will as long as its window is still open.
+ */
+async function durableDiscountIds(
+  stripe: Stripe,
+  invoice: Stripe.Invoice,
+): Promise<Set<string>> {
+  const out = new Set<string>();
+  const ids = (invoice.discounts ?? []).map((d) => (typeof d === 'string' ? d : d.id));
+  if (ids.length === 0) return out;
+
+  let expanded: Stripe.Discount[] = [];
+  try {
+    const full = await stripe.invoices.retrieve(invoice.id!, { expand: ['discounts'] });
+    expanded = (full.discounts ?? []).filter((d): d is Stripe.Discount => typeof d !== 'string');
+  } catch {
+    // Cannot tell whether they recur. Treating them as durable keeps the
+    // behaviour of trusting the invoice, rather than inventing revenue.
+    for (const id of ids) if (id) out.add(id);
+    return out;
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+  for (const discount of expanded) {
+    const raw = discount as unknown as {
+      id?: string;
+      end?: number | null;
+      coupon?: { id?: string; duration?: string } | string | null;
+      source?: { coupon?: string | null } | null;
+    };
+    if (!raw.id) continue;
+
+    const couponId =
+      raw.source?.coupon ?? (typeof raw.coupon === 'string' ? raw.coupon : raw.coupon?.id);
+    const duration = await couponDuration(stripe, couponId, raw.coupon);
+
+    const recurs =
+      duration === 'forever' ||
+      (duration === 'repeating' && (raw.end == null || raw.end > now)) ||
+      // Unknown duration: trust the invoice rather than guess a price rise.
+      duration === null;
+
+    if (recurs) out.add(raw.id);
+  }
+  return out;
+}
+
+const COUPON_DURATIONS = new Map<string, string | null>();
+
+/** A coupon's duration, fetched once. `null` when it cannot be established. */
+async function couponDuration(
+  stripe: Stripe,
+  couponId: string | null | undefined,
+  embedded: { duration?: string } | string | null | undefined,
+): Promise<string | null> {
+  if (embedded && typeof embedded !== 'string' && embedded.duration) return embedded.duration;
+  if (!couponId) return null;
+  if (COUPON_DURATIONS.has(couponId)) return COUPON_DURATIONS.get(couponId) ?? null;
+
+  try {
+    const coupon = await stripe.coupons.retrieve(couponId);
+    COUPON_DURATIONS.set(couponId, coupon.duration ?? null);
+    return coupon.duration ?? null;
+  } catch {
+    COUPON_DURATIONS.set(couponId, null);
+    return null;
+  }
 }
 
 /**
@@ -40,20 +131,35 @@ function lineNet(line: Stripe.InvoiceLineItem): number {
  * carries only prorations — so the caller can look elsewhere instead of taking
  * a one-off adjustment for the subscription's worth.
  */
-function netForPeriod(invoice: Stripe.Invoice): number | null {
+async function netForPeriod(
+  stripe: Stripe,
+  invoice: Stripe.Invoice,
+): Promise<{ recurring: number; current: number } | null> {
   const lines = invoice.lines?.data ?? [];
 
   if (lines.length === 0) {
     const raw = invoice as unknown as { total_excluding_tax?: number | null; total?: number };
-    return raw.total_excluding_tax ?? raw.total ?? null;
+    const total = raw.total_excluding_tax ?? raw.total;
+    return total === undefined || total === null ? null : { recurring: total, current: total };
   }
 
-  const recurring = lines.filter(
-    (l) => !(l as unknown as { proration?: boolean }).proration,
-  );
+  const recurring = lines.filter((line) => {
+    const raw = line as unknown as { proration?: boolean; amount?: number };
+    // A negative line is a credit for time already paid on a plan the customer
+    // has left. Stripe does not always flag it as a proration, and summing it
+    // would halve the rate of anyone who just changed plan mid-cycle.
+    return !raw.proration && (raw.amount ?? 0) > 0;
+  });
   if (recurring.length === 0) return null;
 
-  return recurring.reduce((total, line) => total + lineNet(line), 0);
+  const durable = await durableDiscountIds(stripe, invoice);
+  return recurring.reduce(
+    (total, line) => {
+      const net = lineNet(line, durable);
+      return { recurring: total.recurring + net.recurring, current: total.current + net.current };
+    },
+    { recurring: 0, current: 0 },
+  );
 }
 
 /** Billing cadence of a subscription, read off its first recurring item. */
@@ -68,11 +174,13 @@ function cadence(sub: Stripe.Subscription): { interval: string; count: number } 
 }
 
 export interface RealEconomics {
-  /** Amount billed per period, in the subscription's currency. */
+  /** Recurring amount per period, in the subscription's currency. */
   amountCents: number;
   /** That amount brought back to a month. */
   mrrCents: number;
   mrrBaseCents: number;
+  /** What is billed right now: below `mrrBaseCents` while a temporary coupon runs. */
+  mrrCurrentBaseCents: number;
   currency: string;
 }
 
@@ -91,17 +199,20 @@ export async function realEconomics(
   if (source === null) return null;
 
   const currency = source.currency ?? sub.currency ?? 'eur';
-  const amountCents = Math.max(0, source.net);
+  const amountCents = Math.max(0, source.net.recurring);
+  const currentCents = Math.max(0, source.net.current);
   const { interval, count } = cadence(sub);
 
   // Quantity is already inside the invoiced amount, so it must not be applied
   // a second time here.
   const mrrCents = monthlyNormalized(amountCents, interval, count, 1);
+  const currentMrrCents = monthlyNormalized(currentCents, interval, count, 1);
 
   return {
     amountCents,
     mrrCents,
     mrrBaseCents: toBaseCents(mrrCents, currency),
+    mrrCurrentBaseCents: toBaseCents(currentMrrCents, currency),
     currency,
   };
 }
@@ -121,12 +232,12 @@ export async function realEconomics(
 async function billedAmount(
   stripe: Stripe,
   subscriptionId: string,
-): Promise<{ net: number; currency: string } | null> {
+): Promise<{ net: { recurring: number; current: number }; currency: string } | null> {
   try {
     const invoices = await stripe.invoices.list({ subscription: subscriptionId, limit: 5 });
     for (const invoice of invoices.data) {
       if (invoice.status === 'draft' || invoice.status === 'void') continue;
-      const net = netForPeriod(invoice);
+      const net = await netForPeriod(stripe, invoice);
       if (net !== null) return { net, currency: invoice.currency ?? 'eur' };
     }
   } catch {
@@ -136,7 +247,7 @@ async function billedAmount(
   const preview = await previewInvoice(stripe, subscriptionId);
   if (!preview) return null;
 
-  const net = netForPeriod(preview);
+  const net = await netForPeriod(stripe, preview);
   return net === null ? null : { net, currency: preview.currency ?? 'eur' };
 }
 
@@ -174,6 +285,7 @@ export async function applyRealEconomics(
     status: string;
     mrr_cents: number;
     mrr_base_cents: number;
+    mrr_current_base_cents: number;
     amount_cents: number;
   },
 ): Promise<void> {
@@ -188,4 +300,5 @@ export async function applyRealEconomics(
   normalized.amount_cents = real.amountCents;
   normalized.mrr_cents = billing ? real.mrrCents : 0;
   normalized.mrr_base_cents = billing ? real.mrrBaseCents : 0;
+  normalized.mrr_current_base_cents = billing ? real.mrrCurrentBaseCents : 0;
 }

@@ -74,7 +74,12 @@ CREATE TABLE IF NOT EXISTS subscriptions (
   interval_count      INTEGER NOT NULL DEFAULT 1,
   quantity            INTEGER NOT NULL DEFAULT 1,
   mrr_cents           INTEGER NOT NULL DEFAULT 0,
+  -- Recurring rate: what the subscription is worth per month once any
+  -- temporary discount has run out.
   mrr_base_cents      INTEGER NOT NULL DEFAULT 0,
+  -- What it is actually billed right now. Lower than `mrr_base_cents` while a
+  -- first-invoice or time-limited coupon is running.
+  mrr_current_base_cents INTEGER NOT NULL DEFAULT 0,
   product_name        TEXT,
   started_at          INTEGER,
   canceled_at         INTEGER,

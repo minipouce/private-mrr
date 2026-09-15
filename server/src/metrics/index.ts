@@ -73,6 +73,19 @@ function counts(projectId?: string) {
     )
     .get(...f.args) as { n: number };
 
+  // Also counted inside `active`: a subscription on a first-invoice or
+  // time-limited coupon pays less than its recurring rate for now, which the
+  // headline MRR deliberately does not show — so it is named here instead.
+  const promo = db
+    .prepare(
+      `SELECT COUNT(*) AS n,
+              COALESCE(SUM(mrr_base_cents - mrr_current_base_cents), 0) AS cents
+       FROM subscriptions
+       WHERE status IN (${MRR_LIST}) AND mrr_base_cents > mrr_current_base_cents
+         AND ${f.clause}`,
+    )
+    .get(...f.args) as { n: number; cents: number };
+
   // Counted inside `active`, not alongside it: these subscriptions are billing
   // and weigh in MRR, they are simply failing to collect right now.
   const atRisk = db
@@ -89,6 +102,8 @@ function counts(projectId?: string) {
     trials: trials.n,
     atRiskSubscribers: atRisk.n,
     atRiskMrrCents: atRisk.cents,
+    promoSubscribers: promo.n,
+    promoMrrCents: promo.cents,
   };
 }
 
@@ -195,6 +210,10 @@ export interface ProjectMetrics {
   atRiskSubscribers: number;
   /** Share of `mrrCents` carried by those subscribers. */
   atRiskMrrCents: number;
+  /** Subscribers paying less than their recurring rate, on a temporary coupon. */
+  promoSubscribers: number;
+  /** How much of `mrrCents` they are not paying yet. */
+  promoMrrCents: number;
   movement: ReturnType<typeof mrrMovement>;
   projection: Forecast;
   lastEventAt: number | null;
@@ -220,8 +239,15 @@ function buildMetrics(
   );
 
   const mrr = currentMrr(projectId);
-  const { activeSubscribers, compedSubscribers, trials, atRiskSubscribers, atRiskMrrCents } =
-    counts(projectId);
+  const {
+    activeSubscribers,
+    compedSubscribers,
+    trials,
+    atRiskSubscribers,
+    atRiskMrrCents,
+    promoSubscribers,
+    promoMrrCents,
+  } = counts(projectId);
 
   const fLast = projectFilter(projectId);
   const lastEvent = db
@@ -247,6 +273,8 @@ function buildMetrics(
     trials,
     atRiskSubscribers,
     atRiskMrrCents,
+    promoSubscribers,
+    promoMrrCents,
     movement: mrrMovement(sec(monthStart), sec(now), projectId),
     projection: forecast(ytd, projectId),
     lastEventAt: lastEvent.last,

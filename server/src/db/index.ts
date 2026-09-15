@@ -63,6 +63,18 @@ function migrate(db: Database.Database): void {
     console.log('[db] migration: billing_reason column added');
   }
 
+  const subColumns = (
+    db.prepare('PRAGMA table_info(subscriptions)').all() as { name: string }[]
+  ).map((c) => c.name);
+  if (subColumns.length > 0 && !subColumns.includes('mrr_current_base_cents')) {
+    // Backfilled from the recurring rate: until the next reconciliation every
+    // subscription is assumed to be paying it, which is true of all but the few
+    // on a temporary discount.
+    db.exec('ALTER TABLE subscriptions ADD COLUMN mrr_current_base_cents INTEGER NOT NULL DEFAULT 0');
+    db.exec('UPDATE subscriptions SET mrr_current_base_cents = mrr_base_cents');
+    console.log('[db] migration: mrr_current_base_cents column added');
+  }
+
   const hasPushTokens = db
     .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'push_tokens'")
     .get();

@@ -108,6 +108,10 @@ export interface Metrics {
   atRiskSubscribers?: number;
   /** Share of `mrrCents` carried by those subscribers. */
   atRiskMrrCents?: number;
+  /** Subscribers on a temporary coupon, paying less than their recurring rate. */
+  promoSubscribers?: number;
+  /** How much of `mrrCents` they are not paying yet. */
+  promoMrrCents?: number;
   movement: MrrMovement;
   projection: Projection;
   lastEventAt: number | null;

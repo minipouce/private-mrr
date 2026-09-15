@@ -67,6 +67,7 @@ async function withRealPrice(
     status: string;
     mrr_cents: number;
     mrr_base_cents: number;
+    mrr_current_base_cents: number;
     amount_cents: number;
   },
 ): Promise<void> {

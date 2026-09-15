@@ -116,7 +116,10 @@ export interface SubscriptionRow {
   interval_count: number;
   quantity: number;
   mrr_cents: number;
+  /** Recurring rate per month, once any temporary discount has run out. */
   mrr_base_cents: number;
+  /** What it is billed right now: lower while a time-limited coupon runs. */
+  mrr_current_base_cents: number;
   product_name: string | null;
   started_at: number | null;
   canceled_at: number | null;
@@ -130,12 +133,12 @@ const upsertSubStmt = db.prepare(`
   INSERT INTO subscriptions (
     id, project_id, customer_id, customer_email, customer_name, status,
     currency, amount_cents, interval, interval_count, quantity,
-    mrr_cents, mrr_base_cents, product_name,
+    mrr_cents, mrr_base_cents, mrr_current_base_cents, product_name,
     started_at, canceled_at, current_period_end, updated_at
   ) VALUES (
     @id, @project_id, @customer_id, @customer_email, @customer_name, @status,
     @currency, @amount_cents, @interval, @interval_count, @quantity,
-    @mrr_cents, @mrr_base_cents, @product_name,
+    @mrr_cents, @mrr_base_cents, @mrr_current_base_cents, @product_name,
     @started_at, @canceled_at, @current_period_end, @updated_at
   )
   ON CONFLICT (project_id, id) DO UPDATE SET
@@ -150,6 +153,7 @@ const upsertSubStmt = db.prepare(`
     quantity           = excluded.quantity,
     mrr_cents          = excluded.mrr_cents,
     mrr_base_cents     = excluded.mrr_base_cents,
+    mrr_current_base_cents = excluded.mrr_current_base_cents,
     product_name       = excluded.product_name,
     started_at         = excluded.started_at,
     canceled_at        = excluded.canceled_at,

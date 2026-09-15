@@ -172,11 +172,15 @@ export default function Dashboard() {
           <Stat
             label={t('sinceJanuary')}
             value={moneyCompact(m.ytdCents, m.currency)}
-            hint={
+            hint={[
+              `${m.activeSubscribers} ${t('activeSubscribers')}`,
               (m.compedSubscribers ?? 0) > 0
-                ? `${m.activeSubscribers} ${t('activeSubscribers')} · ${m.compedSubscribers ?? 0} ${t('compedSubscribers')}`
-                : `${m.activeSubscribers} ${t('activeSubscribers')}`
-            }
+                ? `${m.compedSubscribers} ${t('compedSubscribers')}`
+                : null,
+              (m.promoSubscribers ?? 0) > 0 ? `${m.promoSubscribers} ${t('onPromo')}` : null,
+            ]
+              .filter(Boolean)
+              .join(' · ')}
           />
         </Card>
       </View>

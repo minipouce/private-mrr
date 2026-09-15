@@ -188,6 +188,9 @@ export function normalizeSubscription(
     // A cancelled or trialing subscription is kept, but weighs 0 in MRR.
     mrr_cents: isBilling ? econ.mrrCents : 0,
     mrr_base_cents: isBilling ? econ.mrrBaseCents : 0,
+    // Assumed equal until the real invoices are read: only a temporary discount
+    // makes what is billed now differ from the recurring rate.
+    mrr_current_base_cents: isBilling ? econ.mrrBaseCents : 0,
     product_name: econ.productName,
     started_at: sub.start_date ?? sub.created ?? null,
     canceled_at: sub.canceled_at ?? null,

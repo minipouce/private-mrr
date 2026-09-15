@@ -178,6 +178,7 @@ function seedProject(project: (typeof DEMO_PROJECTS)[number]): number {
         quantity: 1,
         mrr_cents: active ? mrr : 0,
         mrr_base_cents: active ? mrr : 0,
+        mrr_current_base_cents: active ? mrr : 0,
         product_name: sub.annual ? 'Yearly' : 'Monthly',
         started_at: sec(sub.startedAt),
         canceled_at: sub.canceledAt ? sec(sub.canceledAt) : null,

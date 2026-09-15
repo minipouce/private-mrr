@@ -2,7 +2,7 @@
   "expo": {
     "name": "MRR",
     "slug": "private-mrr",
-    "version": "1.1.0",
+    "version": "1.1.1",
     "orientation": "portrait",
     "scheme": "privatemrr",
     "userInterfaceStyle": "dark",
@@ -19,7 +19,7 @@
     ],
     "android": {
       "package": "com.tristan.privatemrr",
-      "versionCode": 2,
+      "versionCode": 3,
       "adaptiveIcon": {
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
