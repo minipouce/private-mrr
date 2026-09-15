@@ -17,7 +17,7 @@ import {
   normalizeSubscription,
   MRR_STATUSES,
 } from './normalize.js';
-import { applyResolvedDiscount } from './coupons.js';
+import { applyRealEconomics } from './pricing.js';
 import { notifyEvent } from '../push/index.js';
 import { db } from '../db/index.js';
 
@@ -52,24 +52,30 @@ export async function ingestEvent(
 }
 
 /**
- * Resolves the coupons a webhook payload does not carry.
+ * Puts a webhook's subscription on what Stripe will actually bill it.
  *
- * A subscription arrives with its customer unexpanded and its discounts reduced
- * to ids, so `normalizeSubscription` cannot see a comped account. Left alone it
- * enters MRR at list price until the hourly reconciliation corrects the stored
- * figure — but the movement event emitted meanwhile keeps that price for good.
+ * The payload carries neither the expanded customer nor usable discounts — they
+ * arrive as bare ids — so `normalizeSubscription` cannot see a comped account.
+ * Left alone it enters MRR at list price until the hourly reconciliation
+ * corrects the stored figure, and the movement event emitted meanwhile keeps
+ * that price for good.
  */
-async function withDiscounts(
+async function withRealPrice(
   project: ProjectConfig,
   sub: Stripe.Subscription,
-  normalized: { mrr_cents: number; mrr_base_cents: number; amount_cents: number },
+  normalized: {
+    status: string;
+    mrr_cents: number;
+    mrr_base_cents: number;
+    amount_cents: number;
+  },
 ): Promise<void> {
   const stripe = stripeFor(project);
   if (!stripe) return;
   try {
-    await applyResolvedDiscount(stripe, project.id, sub, normalized);
+    await applyRealEconomics(stripe, project.id, sub, normalized);
   } catch {
-    // An unreadable coupon must not cost us the event: reconciliation will
+    // An unreachable Stripe must not cost us the event: reconciliation will
     // correct the stored MRR within the hour.
   }
 }
@@ -130,7 +136,7 @@ async function handle(project: ProjectConfig, event: Stripe.Event): Promise<Even
     case 'customer.subscription.created': {
       const sub = object as unknown as Stripe.Subscription;
       const normalized = normalizeSubscription(projectId, sub);
-      await withDiscounts(project, sub, normalized);
+      await withRealPrice(project, sub, normalized);
       upsertSubscription(normalized);
       const kind = sub.status === 'trialing' ? 'trial_started' : 'subscription_created';
       return insertEvent(
@@ -142,7 +148,7 @@ async function handle(project: ProjectConfig, event: Stripe.Event): Promise<Even
       const sub = object as unknown as Stripe.Subscription;
       const previous = getSubscription(projectId, sub.id);
       const normalized = normalizeSubscription(projectId, sub);
-      await withDiscounts(project, sub, normalized);
+      await withRealPrice(project, sub, normalized);
       upsertSubscription(normalized);
 
       const before = previous?.mrr_base_cents ?? 0;

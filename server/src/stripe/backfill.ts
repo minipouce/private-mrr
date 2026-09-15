@@ -13,7 +13,8 @@ import {
 } from './normalize.js';
 import { markSyncError } from './ingest.js';
 import { subscriptionProductName } from './products.js';
-import { applyResolvedDiscount, movementMrrBaseCents } from './coupons.js';
+import { movementMrrBaseCents } from './coupons.js';
+import { applyRealEconomics } from './pricing.js';
 
 /**
  * Fills in an existing event with columns added after it was imported.
@@ -94,12 +95,14 @@ export async function backfillProject(
     for await (const sub of stripe.subscriptions.list({
       status: 'all',
       limit: 100,
-      expand: ['data.customer'],
+      // Unexpanded, a discount comes back as a bare id and the coupon behind it
+      // is invisible: a comped subscription would weigh its list price.
+      expand: ['data.customer', 'data.discounts'],
     })) {
       const normalized = normalizeSubscription(project.id, sub);
       normalized.product_name =
         normalized.product_name ?? (await subscriptionProductName(stripe, project.id, sub));
-      await applyResolvedDiscount(stripe, project.id, sub, normalized);
+      await applyRealEconomics(stripe, project.id, sub, normalized);
       upsertSubscription(normalized);
       subCount++;
 
@@ -208,12 +211,12 @@ export async function reconcileProject(project: ProjectConfig): Promise<number> 
       for await (const sub of stripe.subscriptions.list({
         status: status as Stripe.SubscriptionListParams.Status,
         limit: 100,
-        expand: ['data.customer'],
+        expand: ['data.customer', 'data.discounts'],
       })) {
         const normalized = normalizeSubscription(project.id, sub);
         normalized.product_name =
           normalized.product_name ?? (await subscriptionProductName(stripe, project.id, sub));
-        await applyResolvedDiscount(stripe, project.id, sub, normalized);
+        await applyRealEconomics(stripe, project.id, sub, normalized);
         upsertSubscription(normalized);
         count++;
       }
