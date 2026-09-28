@@ -167,6 +167,7 @@ function seedProject(project: (typeof DEMO_PROJECTS)[number]): number {
       upsertSubscription({
         id: sub.id,
         project_id: project.id,
+        source: 'stripe' as const,
         customer_id: sub.customerId,
         customer_email: sub.email,
         customer_name: sub.name,
@@ -189,6 +190,8 @@ function seedProject(project: (typeof DEMO_PROJECTS)[number]): number {
         insertEvent(
           {
             project_id: project.id,
+            source: 'stripe' as const,
+            gross_base_cents: null,
             stripe_event_id: `demo:created:${sub.id}`,
             stripe_object_id: sub.id,
             kind: 'subscription_created',
@@ -218,6 +221,8 @@ function seedProject(project: (typeof DEMO_PROJECTS)[number]): number {
           insertEvent(
             {
               project_id: project.id,
+              source: 'stripe' as const,
+              gross_base_cents: null,
               stripe_event_id: `demo:inv:${sub.id}:${cycle}`,
               stripe_object_id: `in_demo_${sub.id}_${cycle}`,
               kind: 'payment',
@@ -246,6 +251,8 @@ function seedProject(project: (typeof DEMO_PROJECTS)[number]): number {
             insertEvent(
               {
                 project_id: project.id,
+                source: 'stripe' as const,
+                gross_base_cents: null,
                 stripe_event_id: `demo:failed:${sub.id}:${cycle}`,
                 stripe_object_id: `in_demo_${sub.id}_${cycle}_f`,
                 kind: 'payment_failed',
@@ -281,6 +288,8 @@ function seedProject(project: (typeof DEMO_PROJECTS)[number]): number {
           insertEvent(
             {
               project_id: project.id,
+              source: 'stripe' as const,
+              gross_base_cents: null,
               stripe_event_id: `demo:upgrade:${sub.id}`,
               stripe_object_id: sub.id,
               kind: 'subscription_updated',
@@ -307,6 +316,8 @@ function seedProject(project: (typeof DEMO_PROJECTS)[number]): number {
         insertEvent(
           {
             project_id: project.id,
+            source: 'stripe' as const,
+            gross_base_cents: null,
             stripe_event_id: `demo:canceled:${sub.id}`,
             stripe_object_id: sub.id,
             kind: 'subscription_canceled',
@@ -338,6 +349,8 @@ function seedProject(project: (typeof DEMO_PROJECTS)[number]): number {
       insertEvent(
         {
           project_id: project.id,
+          source: 'stripe' as const,
+          gross_base_cents: null,
           stripe_event_id: `demo:oneoff:${project.id}:${i}`,
           stripe_object_id: `ch_demo_${project.id}_${i}`,
           kind: 'payment',

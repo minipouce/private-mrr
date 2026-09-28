@@ -10,15 +10,22 @@ export type EventKind =
   | 'subscription_canceled'
   | 'trial_started';
 
+/** Where a row came from. The two sources share one ledger. */
+export type Source = 'stripe' | 'revenuecat';
+
 export interface EventRow {
   id: number;
   project_id: string;
+  source: Source;
   stripe_event_id: string | null;
   stripe_object_id: string;
   kind: EventKind;
   amount_cents: number;
   currency: string;
+  /** Net of store commission for a purchase made through a store. */
   amount_base_cents: number;
+  /** Gross before commission; `null` when there is no commission to speak of. */
+  gross_base_cents: number | null;
   mrr_delta_cents: number;
   customer_id: string | null;
   customer_email: string | null;
@@ -44,13 +51,13 @@ export type NewEvent = Omit<EventRow, 'id' | 'created_at' | 'project_name' | 'pr
 // and the other would raise.
 const insertStmt = db.prepare(`
   INSERT OR IGNORE INTO events (
-    project_id, stripe_event_id, stripe_object_id, kind,
-    amount_cents, currency, amount_base_cents, mrr_delta_cents,
+    project_id, source, stripe_event_id, stripe_object_id, kind,
+    amount_cents, currency, amount_base_cents, gross_base_cents, mrr_delta_cents,
     customer_id, customer_email, customer_name, subscription_id,
     payment_intent, billing_reason, description, occurred_at, created_at
   ) VALUES (
-    @project_id, @stripe_event_id, @stripe_object_id, @kind,
-    @amount_cents, @currency, @amount_base_cents, @mrr_delta_cents,
+    @project_id, @source, @stripe_event_id, @stripe_object_id, @kind,
+    @amount_cents, @currency, @amount_base_cents, @gross_base_cents, @mrr_delta_cents,
     @customer_id, @customer_email, @customer_name, @subscription_id,
     @payment_intent, @billing_reason, @description, @occurred_at, @created_at
   )
@@ -106,6 +113,7 @@ export function refundedSoFar(projectId: string, chargeId: string): number {
 export interface SubscriptionRow {
   id: string;
   project_id: string;
+  source: Source;
   customer_id: string | null;
   customer_email: string | null;
   customer_name: string | null;
@@ -131,17 +139,18 @@ export type NewSubscription = Omit<SubscriptionRow, 'updated_at'>;
 
 const upsertSubStmt = db.prepare(`
   INSERT INTO subscriptions (
-    id, project_id, customer_id, customer_email, customer_name, status,
+    id, project_id, source, customer_id, customer_email, customer_name, status,
     currency, amount_cents, interval, interval_count, quantity,
     mrr_cents, mrr_base_cents, mrr_current_base_cents, product_name,
     started_at, canceled_at, current_period_end, updated_at
   ) VALUES (
-    @id, @project_id, @customer_id, @customer_email, @customer_name, @status,
+    @id, @project_id, @source, @customer_id, @customer_email, @customer_name, @status,
     @currency, @amount_cents, @interval, @interval_count, @quantity,
     @mrr_cents, @mrr_base_cents, @mrr_current_base_cents, @product_name,
     @started_at, @canceled_at, @current_period_end, @updated_at
   )
   ON CONFLICT (project_id, id) DO UPDATE SET
+    source             = excluded.source,
     customer_id        = excluded.customer_id,
     customer_email     = excluded.customer_email,
     customer_name      = excluded.customer_name,

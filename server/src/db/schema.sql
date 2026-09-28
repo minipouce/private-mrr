@@ -26,12 +26,20 @@ CREATE TABLE IF NOT EXISTS projects (
 CREATE TABLE IF NOT EXISTS events (
   id                 INTEGER PRIMARY KEY AUTOINCREMENT,
   project_id         TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  -- Where the money came from: 'stripe' or 'revenuecat'. The id columns below
+  -- keep their Stripe names and carry the other source's identifiers as-is.
+  source             TEXT NOT NULL DEFAULT 'stripe',
   stripe_event_id    TEXT,
   stripe_object_id   TEXT NOT NULL,
   kind               TEXT NOT NULL,
   amount_cents       INTEGER NOT NULL DEFAULT 0,
   currency           TEXT NOT NULL,
+  -- What actually reaches the bank. For a store purchase this is net of the
+  -- Apple or Google commission and of the tax they remit.
   amount_base_cents  INTEGER NOT NULL DEFAULT 0,
+  -- What the customer paid, before commission. NULL for Stripe, where the two
+  -- are the same. Kept so the commission applied stays auditable.
+  gross_base_cents   INTEGER,
   mrr_delta_cents    INTEGER NOT NULL DEFAULT 0,
   customer_id        TEXT,
   customer_email     TEXT,
@@ -67,6 +75,7 @@ CREATE TABLE IF NOT EXISTS subscriptions (
   customer_id         TEXT,
   customer_email      TEXT,
   customer_name       TEXT,
+  source              TEXT NOT NULL DEFAULT 'stripe',
   status              TEXT NOT NULL,
   currency            TEXT NOT NULL,
   amount_cents        INTEGER NOT NULL DEFAULT 0,

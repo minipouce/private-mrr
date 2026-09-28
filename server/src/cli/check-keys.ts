@@ -17,6 +17,32 @@ const PROBES = [
 let failures = 0;
 
 for (const project of config.projects) {
+  const rc = project.revenuecat;
+  if (rc) {
+    const { overviewMetrics } = await import('../revenuecat/client.js');
+    const missing: string[] = [];
+    if (!rc.apiKey) missing.push('clé API v2');
+    if (!rc.projectId) missing.push('project id');
+    if (!rc.webhookAuth) missing.push('secret webhook');
+
+    if (missing.length > 0) {
+      console.log(`  ${project.id.padEnd(12)} ✗ RevenueCat, manque : ${missing.join(', ')}`);
+      failures++;
+    } else {
+      const metrics = await overviewMetrics(project);
+      if (metrics) {
+        console.log(
+          `  ${project.id.padEnd(12)} ✓ RevenueCat joignable · ` +
+            `${metrics.activeSubscriptions ?? '?'} abonnements actifs`,
+        );
+      } else {
+        console.log(`  ${project.id.padEnd(12)} ✗ RevenueCat injoignable (clé ou project id)`);
+        failures++;
+      }
+    }
+    if (!project.stripeKey) continue;
+  }
+
   const stripe = stripeFor(project);
   if (!stripe) {
     console.log(`  ${project.id.padEnd(12)} ⚠️  no key`);

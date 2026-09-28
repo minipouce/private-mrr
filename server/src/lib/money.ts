@@ -37,6 +37,21 @@ function rateFor(currency: string): number {
   return FALLBACK_RATES[code] ?? 1;
 }
 
+/**
+ * Whether a rate is actually known for a currency.
+ *
+ * `toBaseCents` falls back to 1 when it has none, which is harmless between
+ * near-parity currencies and badly wrong for a yen or a won. A caller that has
+ * a second source for the amount can ask first and use that instead.
+ */
+export function hasRate(currency: string): boolean {
+  const code = currency.toLowerCase();
+  if (code === config.baseCurrency) return true;
+  if (FALLBACK_RATES[code] !== undefined) return true;
+  const row = db.prepare('SELECT 1 FROM fx_rates WHERE currency = ?').get(code);
+  return Boolean(row);
+}
+
 /** Converts internal cents into the base currency. */
 export function toBaseCents(cents: number, currency: string): number {
   return Math.round(cents * rateFor(currency));

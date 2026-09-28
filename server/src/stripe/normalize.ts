@@ -178,6 +178,7 @@ export function normalizeSubscription(
   return {
     id: sub.id,
     project_id: projectId,
+    source: 'stripe',
     ...customerFields(sub.customer),
     status: sub.status,
     currency: econ.currency,
@@ -207,12 +208,15 @@ function baseEvent(
 ): NewEvent {
   return {
     project_id: projectId,
+    source: 'stripe',
     stripe_event_id: stripeEventId ?? `${kind}:${objectId}`,
     stripe_object_id: objectId,
     kind,
     amount_cents: 0,
     currency: 'eur',
     amount_base_cents: 0,
+    // Stripe bills what it says: nothing is withheld between the two.
+    gross_base_cents: null,
     mrr_delta_cents: 0,
     customer_id: null,
     customer_email: null,

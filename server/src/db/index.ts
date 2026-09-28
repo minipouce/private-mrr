@@ -75,6 +75,19 @@ function migrate(db: Database.Database): void {
     console.log('[db] migration: mrr_current_base_cents column added');
   }
 
+  if (!columns.includes('source')) {
+    db.exec("ALTER TABLE events ADD COLUMN source TEXT NOT NULL DEFAULT 'stripe'");
+    console.log('[db] migration: events.source column added');
+  }
+  if (!columns.includes('gross_base_cents')) {
+    db.exec('ALTER TABLE events ADD COLUMN gross_base_cents INTEGER');
+    console.log('[db] migration: gross_base_cents column added');
+  }
+  if (subColumns.length > 0 && !subColumns.includes('source')) {
+    db.exec("ALTER TABLE subscriptions ADD COLUMN source TEXT NOT NULL DEFAULT 'stripe'");
+    console.log('[db] migration: subscriptions.source column added');
+  }
+
   const hasPushTokens = db
     .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'push_tokens'")
     .get();

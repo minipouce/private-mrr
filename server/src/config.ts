@@ -17,14 +17,46 @@ import { randomBytes } from 'node:crypto';
  * exposed by the API, and never logged.
  */
 
+/**
+ * RevenueCat side of a project: the App Store and Google Play subscriptions.
+ *
+ * Separate from Stripe because the two answer different questions. Stripe bills
+ * and tells you the amount. A store bills, keeps its commission, and only then
+ * pays out — so what lands in the bank is not what the customer paid.
+ */
+export interface RevenueCatConfig {
+  /** Secret API v2 key (`sk_...`). A v1 key will not work. */
+  apiKey: string | null;
+  /** RevenueCat project id, which its API paths are built from. */
+  projectId: string | null;
+  /**
+   * Exact value of the `Authorization` header set in RevenueCat's dashboard.
+   * RevenueCat does not sign its webhooks: it repeats this secret instead, so
+   * without it anyone could post fake revenue.
+   */
+  webhookAuth: string | null;
+  /**
+   * Store commission to assume when an event does not carry one, in percent.
+   *
+   * RevenueCat marks `commission_percentage` as only sometimes present. The
+   * rate is 30% by default, 15% under Apple's Small Business Program and for
+   * Google Play's first million, so it has to be told per project rather than
+   * guessed. When neither the event nor this says, 30% is applied and logged —
+   * understating revenue is the safer error for a forecast.
+   */
+  commissionPct: number | null;
+}
+
 export interface ProjectConfig {
   /** Stable id used in the database and the API (for example `saas-a`). */
   id: string;
   name: string;
-  /** Stripe secret key. Absent in demo mode. */
+  /** Stripe secret key. Absent in demo mode, or on a store-only project. */
   stripeKey: string | null;
   /** Stripe webhook signing secret for this account. */
   webhookSecret: string | null;
+  /** Store subscriptions, when the project has any. `null` when it has none. */
+  revenuecat: RevenueCatConfig | null;
   /** Accent colour the app uses to identify the project. */
   color: string;
 }
@@ -58,6 +90,27 @@ function env(name: string): string | null {
   return value ? value : null;
 }
 
+/** Reads a project's RevenueCat block, or `null` when it declares none. */
+function readRevenueCat(prefix: string): RevenueCatConfig | null {
+  const apiKey = env(`${prefix}_REVENUECAT_KEY`);
+  const projectId = env(`${prefix}_REVENUECAT_PROJECT_ID`);
+  const webhookAuth = env(`${prefix}_REVENUECAT_WEBHOOK_AUTH`);
+  if (!apiKey && !projectId && !webhookAuth) return null;
+
+  const raw = env(`${prefix}_STORE_COMMISSION_PCT`);
+  const commissionPct = raw === null ? null : Number(raw);
+
+  return {
+    apiKey,
+    projectId,
+    webhookAuth,
+    commissionPct:
+      commissionPct !== null && Number.isFinite(commissionPct) && commissionPct >= 0 && commissionPct < 100
+        ? commissionPct
+        : null,
+  };
+}
+
 function readProjects(): ProjectConfig[] {
   const raw = (process.env.PROJECTS ?? '').trim();
   if (!raw) return [];
@@ -73,6 +126,7 @@ function readProjects(): ProjectConfig[] {
         name: env(`${prefix}_NAME`) ?? id,
         stripeKey: env(`${prefix}_STRIPE_KEY`),
         webhookSecret: env(`${prefix}_WEBHOOK_SECRET`),
+        revenuecat: readRevenueCat(prefix),
         color: env(`${prefix}_COLOR`) ?? DEFAULT_COLORS[index % DEFAULT_COLORS.length]!,
       };
     });
