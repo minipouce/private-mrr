@@ -152,7 +152,48 @@ function readApiToken(): string {
   return generated;
 }
 
+export interface ScopedToken {
+  /** Label from the variable name, for logs only. */
+  label: string;
+  token: string;
+  /** Projects this token may see. `null` means every project. */
+  projects: string[] | null;
+}
+
+/**
+ * Additional tokens, each restricted to a few projects.
+ *
+ *   API_TOKEN_CAMILLE=...
+ *   API_TOKEN_CAMILLE_PROJECTS=bienmangerenceinte,mimiam
+ *
+ * The restriction is enforced by the server, never by the app: filtering in the
+ * client would only hide the other projects on screen while still sending them
+ * over the wire, which is not a restriction at all.
+ */
+function readScopedTokens(): ScopedToken[] {
+  const out: ScopedToken[] = [];
+  for (const [name, value] of Object.entries(process.env)) {
+    const match = name.match(/^API_TOKEN_([A-Z0-9_]+)$/);
+    if (!match || name.endsWith('_PROJECTS')) continue;
+    const token = value?.trim();
+    if (!token) continue;
+
+    const scope = (process.env[`${name}_PROJECTS`] ?? '')
+      .split(',')
+      .map((p) => p.trim())
+      .filter(Boolean);
+
+    out.push({
+      label: match[1]!.toLowerCase(),
+      token,
+      projects: scope.length > 0 ? scope : null,
+    });
+  }
+  return out;
+}
+
 const projects = readProjects();
+const scopedTokens = readScopedTokens();
 
 export const config = {
   port: Number(process.env.PORT ?? 8791),
@@ -177,6 +218,7 @@ export const config = {
 
   projects,
   projectById: new Map(projects.map((p) => [p.id, p])),
+  scopedTokens,
 } as const;
 
 export function requireProject(id: string): ProjectConfig {

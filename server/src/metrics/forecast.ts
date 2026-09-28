@@ -146,8 +146,9 @@ function monthlyCash(
   fromSec: number,
   toSec: number,
   projectId?: string,
+  scope?: string[] | null,
 ): Map<string, { newBusiness: number; oneOff: number }> {
-  const f = projectFilter(projectId);
+  const f = projectFilter(projectId, scope);
   const rows = db
     .prepare(
       `WITH firsts AS (
@@ -197,8 +198,8 @@ function monthlyCash(
  * zeroed when it stops billing — so the revenue it used to carry is still
  * readable, which is what makes this measurable at all.
  */
-function churnHistory(projectId?: string): { lost: number; base: number; lostCount: number }[] {
-  const f = projectFilter(projectId);
+function churnHistory(projectId?: string, scope?: string[] | null): { lost: number; base: number; lostCount: number }[] {
+  const f = projectFilter(projectId, scope);
   const subs = db
     .prepare(
       `SELECT amount_cents, currency, interval, interval_count, started_at, canceled_at
@@ -283,11 +284,11 @@ function readChurn(series: { lost: number; base: number; lostCount: number }[]):
   };
 }
 
-function measureDrivers(projectId?: string): Drivers {
+function measureDrivers(projectId?: string, scope?: string[] | null): Drivers {
   const firstOfThisMonth = startOfMonth();
   const windowStart = addMonths(firstOfThisMonth, -WINDOW);
 
-  const cash = monthlyCash(sec(windowStart), sec(firstOfThisMonth), projectId);
+  const cash = monthlyCash(sec(windowStart), sec(firstOfThisMonth), projectId, scope);
   const keys: string[] = [];
   for (let i = WINDOW; i >= 1; i--) keys.push(monthKey(addMonths(firstOfThisMonth, -i)));
 
@@ -304,11 +305,11 @@ function measureDrivers(projectId?: string): Drivers {
   // Churn is measured on its own, longer window, starting at the first month the
   // business actually had subscribers to lose. A project with too few losses of
   // its own borrows the consolidated rate rather than publish its noise.
-  let churn = readChurn(churnHistory(projectId));
+  let churn = readChurn(churnHistory(projectId, scope));
   let churnBorrowed = false;
 
   if (projectId && churn.months > 0 && churn.events < MIN_LOSS_EVENTS) {
-    const consolidated = readChurn(churnHistory(undefined));
+    const consolidated = readChurn(churnHistory(undefined, scope));
     if (consolidated.events >= MIN_LOSS_EVENTS) {
       churn = consolidated;
       churnBorrowed = true;
@@ -382,8 +383,8 @@ function addInterval(d: Date, interval: string, count: number): Date {
  * its price in MRR every month, but bills the whole of it on one date — and
  * possibly not before the year is out.
  */
-function scheduledRenewals(buckets: number, survival: number[], projectId?: string): number[] {
-  const f = projectFilter(projectId);
+function scheduledRenewals(buckets: number, survival: number[], projectId?: string, scope?: string[] | null): number[] {
+  const f = projectFilter(projectId, scope);
   const subs = db
     .prepare(
       `SELECT amount_cents, currency, interval, interval_count, current_period_end
@@ -434,8 +435,8 @@ function scheduledRenewals(buckets: number, survival: number[], projectId?: stri
   return out;
 }
 
-function currentMrr(projectId?: string): number {
-  const f = projectFilter(projectId);
+function currentMrr(projectId?: string, scope?: string[] | null): number {
+  const f = projectFilter(projectId, scope);
   const row = db
     .prepare(
       `SELECT COALESCE(SUM(mrr_base_cents), 0) AS total FROM subscriptions
@@ -500,10 +501,10 @@ function simulate(
   return { months, total, recurring, oneOff: oneOffTotal, endMrr: mrr };
 }
 
-export function forecast(ytdCents: number, projectId?: string): Forecast {
+export function forecast(ytdCents: number, projectId?: string, scope?: string[] | null): Forecast {
   const now = new Date();
-  const mrr = currentMrr(projectId);
-  const drivers = measureDrivers(projectId);
+  const mrr = currentMrr(projectId, scope);
+  const drivers = measureDrivers(projectId, scope);
 
   const buckets = 12 - now.getMonth();
   const firstMonthShare = (daysInMonth(now) - now.getDate()) / daysInMonth(now);
@@ -515,7 +516,7 @@ export function forecast(ytdCents: number, projectId?: string): Forecast {
     ? new Array<number>(buckets + 1).fill(0)
     : churnSchedule(drivers.churnRate, drivers.churnTrendPct, buckets + 1);
   const survival = cumulativeSurvival(rates);
-  const renewals = scheduledRenewals(buckets, survival, projectId);
+  const renewals = scheduledRenewals(buckets, survival, projectId, scope);
 
   const run = (newPerMonth: number, oneOffPerMonth: number) =>
     simulate(buckets, renewals, newPerMonth, oneOffPerMonth, rates, survival, firstMonthShare, mrr);

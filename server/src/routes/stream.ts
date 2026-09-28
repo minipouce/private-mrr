@@ -23,9 +23,15 @@ export function registerStream(app: FastifyInstance): void {
     };
 
     send('hello', { ok: true, at: Math.floor(Date.now() / 1000) });
-    send('metrics', overview());
+    const scope = request.projectScope;
+    send('metrics', overview(scope));
 
-    const onEvent = (event: EventRow) => send('event', event);
+    // The live feed is filtered too: a restricted token must not be told about
+    // a payment on a project it cannot otherwise see.
+    const onEvent = (event: EventRow) => {
+      if (scope && !scope.includes(event.project_id)) return;
+      send('event', event);
+    };
 
     // Recomputation is coalesced: a burst of webhooks causes a single send.
     let pending: NodeJS.Timeout | null = null;
@@ -33,7 +39,7 @@ export function registerStream(app: FastifyInstance): void {
       if (pending) return;
       pending = setTimeout(() => {
         pending = null;
-        send('metrics', overview());
+        send('metrics', overview(scope));
       }, 400);
     };
 

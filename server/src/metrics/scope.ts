@@ -10,18 +10,34 @@ export const sec = (d: Date) => Math.floor(d.getTime() / 1000);
  * flagged `include_in_totals`. An excluded project stays viewable on its own, it
  * simply no longer weighs on the consolidated figures.
  */
-export function projectFilter(projectId?: string): { clause: string; args: string[] } {
-  if (projectId) return { clause: 'project_id = ?', args: [projectId] };
+export function projectFilter(
+  projectId?: string,
+  scope?: string[] | null,
+): { clause: string; args: string[] } {
+  // A restricted token narrows everything, including a request naming one
+  // project: without this, asking for a project by id would walk straight past
+  // the restriction.
+  if (projectId) {
+    if (scope && !scope.includes(projectId)) return { clause: '1 = 0', args: [] };
+    return { clause: 'project_id = ?', args: [projectId] };
+  }
 
   const rows = db
     .prepare('SELECT id FROM projects WHERE include_in_totals = 1')
     .all() as { id: string }[];
 
-  if (rows.length === 0) return { clause: '1 = 0', args: [] };
+  const ids = scope ? rows.filter((r) => scope.includes(r.id)) : rows;
+  if (ids.length === 0) return { clause: '1 = 0', args: [] };
   return {
-    clause: `project_id IN (${rows.map(() => '?').join(',')})`,
-    args: rows.map((r) => r.id),
+    clause: `project_id IN (${ids.map(() => '?').join(',')})`,
+    args: ids.map((r) => r.id),
   };
+}
+
+/** Projects a token may list, in the order the interface shows them. */
+export function visibleProjects(scope?: string[] | null): string[] {
+  const rows = db.prepare('SELECT id FROM projects').all() as { id: string }[];
+  return rows.map((r) => r.id).filter((id) => !scope || scope.includes(id));
 }
 
 export function startOfDay(ref = new Date()): Date {

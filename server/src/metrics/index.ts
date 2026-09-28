@@ -21,8 +21,8 @@ const TRIAL_LIST = TRIAL_STATUSES.map((s) => `'${s}'`).join(',');
 const CASH_KINDS = `('payment','refund')`;
 
 /** Cash collected over a window, optionally narrowed to one project. */
-function cashBetween(fromSec: number, toSec: number, projectId?: string): number {
-  const f = projectFilter(projectId);
+function cashBetween(fromSec: number, toSec: number, projectId?: string, scope?: string[] | null): number {
+  const f = projectFilter(projectId, scope);
   const row = db
     .prepare(
       `SELECT COALESCE(SUM(amount_base_cents), 0) AS total
@@ -34,8 +34,8 @@ function cashBetween(fromSec: number, toSec: number, projectId?: string): number
   return row.total;
 }
 
-function currentMrr(projectId?: string): number {
-  const f = projectFilter(projectId);
+function currentMrr(projectId?: string, scope?: string[] | null): number {
+  const f = projectFilter(projectId, scope);
   const row = db
     .prepare(
       `SELECT COALESCE(SUM(mrr_base_cents), 0) AS total
@@ -53,8 +53,8 @@ function currentMrr(projectId?: string): number {
  * is not a customer for the purposes of this count. Counting it inflates the
  * headline while adding nothing to MRR, so it is tallied apart.
  */
-function counts(projectId?: string) {
-  const f = projectFilter(projectId);
+function counts(projectId?: string, scope?: string[] | null) {
+  const f = projectFilter(projectId, scope);
   const active = db
     .prepare(
       `SELECT COUNT(*) AS n FROM subscriptions
@@ -112,8 +112,8 @@ function counts(projectId?: string) {
  * The four components explain the gap between MRR on the 1st and MRR today:
  * new business, expansion, contraction, churn.
  */
-function mrrMovement(fromSec: number, toSec: number, projectId?: string) {
-  const f = projectFilter(projectId);
+function mrrMovement(fromSec: number, toSec: number, projectId?: string, scope?: string[] | null) {
+  const f = projectFilter(projectId, scope);
   const args = [fromSec, toSec, ...f.args];
 
   const row = db
@@ -147,9 +147,9 @@ function mrrMovement(fromSec: number, toSec: number, projectId?: string) {
 }
 
 /** Daily cash series, for the app's chart. */
-export function dailySeries(days: number, projectId?: string) {
+export function dailySeries(days: number, projectId?: string, scope?: string[] | null) {
   const from = sec(new Date(startOfDay().getTime() - (days - 1) * 86_400_000));
-  const f = projectFilter(projectId);
+  const f = projectFilter(projectId, scope);
   const rows = db
     .prepare(
       `SELECT date(occurred_at, 'unixepoch', 'localtime') AS day,
@@ -171,7 +171,7 @@ export function dailySeries(days: number, projectId?: string) {
 }
 
 /** Rolling monthly series over N months, with each month's net MRR. */
-export function monthlySeries(months: number, projectId?: string) {
+export function monthlySeries(months: number, projectId?: string, scope?: string[] | null) {
   const series: { month: string; cents: number; netMrrCents: number }[] = [];
   const now = new Date();
 
@@ -181,8 +181,8 @@ export function monthlySeries(months: number, projectId?: string) {
     const label = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}`;
     series.push({
       month: label,
-      cents: cashBetween(sec(start), sec(end), projectId),
-      netMrrCents: mrrMovement(sec(start), sec(end), projectId).netCents,
+      cents: cashBetween(sec(start), sec(end), projectId, scope),
+      netMrrCents: mrrMovement(sec(start), sec(end), projectId, scope).netCents,
     });
   }
   return series;
@@ -223,22 +223,24 @@ function buildMetrics(
   projectId: string | undefined,
   name: string,
   color: string,
+  scope?: string[] | null,
 ): ProjectMetrics {
   const now = new Date();
   const monthStart = startOfMonth(now);
   const prevStart = addMonths(monthStart, -1);
 
-  const mtd = cashBetween(sec(monthStart), sec(now), projectId);
-  const ytd = cashBetween(sec(startOfYear(now)), sec(now), projectId);
+  const mtd = cashBetween(sec(monthStart), sec(now), projectId, scope);
+  const ytd = cashBetween(sec(startOfYear(now)), sec(now), projectId, scope);
 
   // Like-for-like comparison: the same number of days elapsed last month.
   const prevSameSpan = cashBetween(
     sec(prevStart),
     sec(new Date(prevStart.getTime() + (now.getTime() - monthStart.getTime()))),
     projectId,
+    scope,
   );
 
-  const mrr = currentMrr(projectId);
+  const mrr = currentMrr(projectId, scope);
   const {
     activeSubscribers,
     compedSubscribers,
@@ -247,9 +249,9 @@ function buildMetrics(
     atRiskMrrCents,
     promoSubscribers,
     promoMrrCents,
-  } = counts(projectId);
+  } = counts(projectId, scope);
 
-  const fLast = projectFilter(projectId);
+  const fLast = projectFilter(projectId, scope);
   const lastEvent = db
     .prepare(`SELECT MAX(occurred_at) AS last FROM events WHERE ${fLast.clause}`)
     .get(...fLast.args) as { last: number | null };
@@ -261,11 +263,11 @@ function buildMetrics(
     currency: config.baseCurrency,
     mrrCents: mrr,
     arrCents: mrr * 12,
-    todayCents: cashBetween(sec(startOfDay(now)), sec(now), projectId),
+    todayCents: cashBetween(sec(startOfDay(now)), sec(now), projectId, scope),
     mtdCents: mtd,
     ytdCents: ytd,
-    last30Cents: cashBetween(sec(new Date(now.getTime() - 30 * 86_400_000)), sec(now), projectId),
-    prevMonthCents: cashBetween(sec(prevStart), sec(monthStart), projectId),
+    last30Cents: cashBetween(sec(new Date(now.getTime() - 30 * 86_400_000)), sec(now), projectId, scope),
+    prevMonthCents: cashBetween(sec(prevStart), sec(monthStart), projectId, scope),
     mtdVsPrevPct:
       prevSameSpan > 0 ? Math.round(((mtd - prevSameSpan) / prevSameSpan) * 1000) / 10 : null,
     activeSubscribers,
@@ -275,15 +277,15 @@ function buildMetrics(
     atRiskMrrCents,
     promoSubscribers,
     promoMrrCents,
-    movement: mrrMovement(sec(monthStart), sec(now), projectId),
-    projection: forecast(ytd, projectId),
+    movement: mrrMovement(sec(monthStart), sec(now), projectId, scope),
+    projection: forecast(ytd, projectId, scope),
     lastEventAt: lastEvent.last,
   };
 }
 
 /** Consolidated view: all-project total plus per-project detail. */
-export function overview() {
-  const projects = db
+export function overview(scope?: string[] | null) {
+  const rows = db
     .prepare(
       `SELECT id, name, color, include_in_totals, goal_cents, goal_kind
        FROM projects ORDER BY name COLLATE NOCASE`,
@@ -297,14 +299,17 @@ export function overview() {
     goal_kind: string;
   }[];
 
-  const total = buildMetrics(undefined, 'Tous les projets', '#6366f1');
+  // A restricted token never learns that the other projects exist.
+  const projects = scope ? rows.filter((p) => scope.includes(p.id)) : rows;
+
+  const total = buildMetrics(undefined, 'Tous les projets', '#6366f1', scope);
 
   return {
     generatedAt: Math.floor(Date.now() / 1000),
     currency: config.baseCurrency,
     total: { ...total, goal: goalProgress(globalGoal(), total.mrrCents) },
     projects: projects.map((p) => {
-      const metrics = buildMetrics(p.id, p.name, p.color);
+      const metrics = buildMetrics(p.id, p.name, p.color, scope);
       const goal =
         p.goal_cents && p.goal_cents > 0
           ? { cents: p.goal_cents, kind: (p.goal_kind === 'arr' ? 'arr' : 'mrr') as GoalKind }
@@ -319,10 +324,14 @@ export function overview() {
   };
 }
 
-export function projectMetrics(projectId: string): ProjectMetrics | null {
+export function projectMetrics(
+  projectId: string,
+  scope?: string[] | null,
+): ProjectMetrics | null {
+  if (scope && !scope.includes(projectId)) return null;
   const project = db
     .prepare('SELECT id, name, color FROM projects WHERE id = ?')
     .get(projectId) as { id: string; name: string; color: string } | undefined;
   if (!project) return null;
-  return buildMetrics(project.id, project.name, project.color);
+  return buildMetrics(project.id, project.name, project.color, scope);
 }

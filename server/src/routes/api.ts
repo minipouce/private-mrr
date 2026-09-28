@@ -24,9 +24,9 @@ export function registerApi(app: FastifyInstance): void {
     };
   });
 
-  app.get('/api/overview', async () => overview());
+  app.get('/api/overview', async (request) => overview(request.projectScope));
 
-  app.get('/api/projects', async () => {
+  app.get('/api/projects', async (request) => {
     const sync = db.prepare('SELECT * FROM sync_state').all() as {
       project_id: string;
       backfill_done: number;
@@ -36,8 +36,10 @@ export function registerApi(app: FastifyInstance): void {
     }[];
     const syncById = new Map(sync.map((s) => [s.project_id, s]));
 
-    return listProjects().map((p) => ({
-      ...p,
+    return listProjects()
+      .filter((p) => !request.projectScope || request.projectScope.includes(p.id))
+      .map((p) => ({
+        ...p,
       includedInTotals: p.include_in_totals === 1,
       hasLogo: hasLogo(p.id),
       // `connected` says a Stripe key is configured, without ever revealing it.
@@ -102,7 +104,7 @@ export function registerApi(app: FastifyInstance): void {
   );
 
   app.get<{ Params: { id: string } }>('/api/projects/:id', async (request, reply) => {
-    const metrics = projectMetrics(request.params.id);
+    const metrics = projectMetrics(request.params.id, request.projectScope);
     if (!metrics) return reply.code(404).send({ error: 'projet introuvable' });
     return metrics;
   });
@@ -116,7 +118,15 @@ export function registerApi(app: FastifyInstance): void {
     const clauses: string[] = [];
     const args: unknown[] = [];
 
-    if (project) {
+    // A restricted token sees the activity of its own projects and nothing
+    // else, whether or not it names one.
+    const scope = request.projectScope;
+    if (scope) {
+      const allowed = project ? scope.filter((p) => p === project) : scope;
+      if (allowed.length === 0) return { events: [], nextCursor: null };
+      clauses.push(`project_id IN (${allowed.map(() => '?').join(',')})`);
+      args.push(...allowed);
+    } else if (project) {
       clauses.push('project_id = ?');
       args.push(project);
     }
@@ -149,6 +159,7 @@ export function registerApi(app: FastifyInstance): void {
       series: dailySeries(
         clamp(Number(request.query.days ?? 30), 7, 365),
         request.query.project,
+        request.projectScope,
       ),
     }),
   );
@@ -159,6 +170,7 @@ export function registerApi(app: FastifyInstance): void {
       series: monthlySeries(
         clamp(Number(request.query.months ?? 12), 3, 36),
         request.query.project,
+        request.projectScope,
       ),
     }),
   );
@@ -170,7 +182,15 @@ export function registerApi(app: FastifyInstance): void {
       const statuses = [...MRR_STATUSES, ...TRIAL_STATUSES];
       const args: unknown[] = [...statuses];
       let where = `WHERE s.status IN (${statuses.map(() => '?').join(',')})`;
-      if (request.query.project) {
+      const scope = request.projectScope;
+      if (scope) {
+        const allowed = request.query.project
+          ? scope.filter((p) => p === request.query.project)
+          : scope;
+        if (allowed.length === 0) return { subscribers: [] };
+        where += ` AND s.project_id IN (${allowed.map(() => '?').join(',')})`;
+        args.push(...allowed);
+      } else if (request.query.project) {
         where += ' AND s.project_id = ?';
         args.push(request.query.project);
       }
