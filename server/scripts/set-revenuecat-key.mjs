@@ -2,21 +2,20 @@
 /**
  * Stores a RevenueCat API key in `.env.real` without it ever being displayed.
  *
- *   node scripts/set-revenuecat-key.mjs decal
+ *   npm run rc-key decal
  *
- * The key is read with the terminal echo turned off, written straight to the
- * file, and never printed, logged or passed as an argument — an argument would
- * sit in the shell history and in the process list for anyone to read.
+ * The key is read with the terminal in raw mode, so nothing is echoed: it never
+ * appears on screen, in the shell history, or in the process list — which is
+ * where it would sit had it been passed as an argument.
  *
  * Replaces an existing value rather than appending a second line, so running it
- * again is how you rotate a key.
+ * again on the same project is how a key is rotated.
  */
 import { readFileSync, writeFileSync, existsSync, chmodSync } from 'node:fs';
-import { createInterface } from 'node:readline';
 
 const project = process.argv[2];
 if (!project) {
-  console.error('Usage : node scripts/set-revenuecat-key.mjs <id-du-projet>');
+  console.error('Usage : npm run rc-key <id-du-projet>');
   process.exit(1);
 }
 
@@ -28,45 +27,90 @@ if (!existsSync(FILE)) {
 
 const variable = `PROJECT_${project.toUpperCase().replace(/[^A-Z0-9]+/g, '_')}_REVENUECAT_KEY`;
 const content = readFileSync(FILE, 'utf8');
-if (!content.includes(`${variable}=`)) {
+if (!new RegExp(`^${variable}=`, 'm').test(content)) {
   console.error(`La ligne ${variable}= n'existe pas dans .env.real`);
   process.exit(1);
 }
 
-/** Reads one line with the echo off, so the key never appears on screen. */
+/**
+ * Reads one line without echoing it.
+ *
+ * Raw mode rather than readline: readline in terminal mode redraws the line it
+ * is reading, and muting that redraw erases the prompt along with it — which is
+ * exactly how the first version of this script managed to show nothing and read
+ * nothing. Here the terminal is simply told not to echo, and no redraw happens.
+ *
+ * A paste arrives as one chunk, not character by character, so the newline is
+ * looked for inside the chunk rather than compared against it.
+ */
 function askHidden(question) {
   return new Promise((resolve) => {
-    const rl = createInterface({ input: process.stdin, output: process.stdout, terminal: true });
-    const output = rl.output;
-    let first = true;
-    output.write(question);
-    // Swallow every echoed character; the prompt itself is written once.
-    rl._writeToOutput = () => {
-      if (first) first = false;
+    process.stdout.write(question);
+
+    // Not a terminal (a pipe, a test): read the line plainly.
+    if (!process.stdin.isTTY) {
+      let piped = '';
+      process.stdin.setEncoding('utf8');
+      process.stdin.on('data', (c) => { piped += c; });
+      process.stdin.on('end', () => {
+        process.stdout.write('\n');
+        resolve(piped.split(/[\r\n]/)[0].trim());
+      });
+      return;
+    }
+
+    process.stdin.setRawMode(true);
+    process.stdin.resume();
+    process.stdin.setEncoding('utf8');
+
+    let buffer = '';
+    const done = (value) => {
+      process.stdin.setRawMode(false);
+      process.stdin.pause();
+      process.stdin.removeListener('data', onData);
+      process.stdout.write('\n');
+      resolve(value);
     };
-    rl.question('', (answer) => {
-      rl.close();
-      output.write('\n');
-      resolve(answer.trim());
-    });
+
+    const onData = (chunk) => {
+      // Ctrl+C has to be handled by hand: raw mode swallows the signal.
+      if (chunk.includes('\u0003')) {
+        process.stdin.setRawMode(false);
+        process.stdout.write('\n');
+        process.exit(130);
+      }
+
+      const end = chunk.search(/[\r\n]/);
+      const typed = end === -1 ? chunk : chunk.slice(0, end);
+
+      for (const ch of typed) {
+        if (ch === '\u007f' || ch === '\b') buffer = buffer.slice(0, -1);
+        else if (ch >= ' ') buffer += ch;
+      }
+
+      if (end !== -1) done(buffer.trim());
+    };
+
+    process.stdin.on('data', onData);
   });
 }
 
-const key = await askHidden(`Clé API v2 (secrète) pour ${project} — collez-la, rien ne s'affichera : `);
+const key = await askHidden(
+  `Cle API v2 (secrete) pour ${project} — collez-la puis Entree, rien ne s'affichera : `,
+);
 
 if (!key) {
-  console.error('Rien saisi, fichier inchangé.');
+  console.error('Rien saisi, fichier inchange.');
   process.exit(1);
 }
 if (!key.startsWith('sk_')) {
-  console.error(`La clé ne commence pas par sk_ : ce n'est pas une clé v2 secrète. Fichier inchangé.`);
+  console.error("La cle ne commence pas par sk_ : ce n'est pas une cle v2 secrete. Fichier inchange.");
   process.exit(1);
 }
 
-const updated = content.replace(new RegExp(`^${variable}=.*$`, 'm'), `${variable}=${key}`);
-writeFileSync(FILE, updated);
-// `writeFileSync` only honours `mode` when it creates the file, so an existing
-// one keeps whatever it had. A file holding live keys has no business being
-// readable by anyone else on the machine.
+writeFileSync(FILE, content.replace(new RegExp(`^${variable}=.*$`, 'm'), `${variable}=${key}`));
+// `writeFileSync` only honours a mode when it creates the file; an existing one
+// keeps whatever it had, and a file of live keys has no business being readable
+// by anyone else on the machine.
 chmodSync(FILE, 0o600);
-console.log(`${variable} enregistrée (${key.length} caractères). La valeur n'a pas été affichée.`);
+console.log(`${variable} enregistree (${key.length} caracteres). La valeur n'a pas ete affichee.`);
