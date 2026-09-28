@@ -107,6 +107,9 @@ CREATE TABLE IF NOT EXISTS push_tokens (
   -- Language the device asked for, so one server can notify a French phone and
   -- an English one differently. 'en' when the device never said.
   locale       TEXT NOT NULL DEFAULT 'en',
+  -- Projects this device may be told about, comma separated. NULL means every
+  -- project: the scope of the token that registered it.
+  project_scope TEXT,
   created_at   INTEGER NOT NULL,
   last_seen_at INTEGER NOT NULL
 );

@@ -107,7 +107,12 @@ const COPY = {
  * Google changes their shape. An invalid token is purged on the first send
  * anyway.
  */
-export function registerToken(token: string, deviceName?: string, locale?: string): void {
+export function registerToken(
+  token: string,
+  deviceName?: string,
+  locale?: string,
+  projectScope?: string[] | null,
+): void {
   const trimmed = token.trim();
   if (trimmed.length < 32 || trimmed.length > 4096 || /\s/.test(trimmed)) {
     throw new Error('Invalid device token');
@@ -115,13 +120,21 @@ export function registerToken(token: string, deviceName?: string, locale?: strin
 
   const now = Math.floor(Date.now() / 1000);
   db.prepare(
-    `INSERT INTO push_tokens (token, device_name, locale, created_at, last_seen_at)
-     VALUES (?, ?, ?, ?, ?)
+    `INSERT INTO push_tokens (token, device_name, locale, project_scope, created_at, last_seen_at)
+     VALUES (?, ?, ?, ?, ?, ?)
      ON CONFLICT(token) DO UPDATE SET
-       device_name = excluded.device_name,
-       locale      = excluded.locale,
-       last_seen_at = excluded.last_seen_at`,
-  ).run(trimmed, deviceName ?? null, normalizeLocale(locale), now, now);
+       device_name   = excluded.device_name,
+       locale        = excluded.locale,
+       project_scope = excluded.project_scope,
+       last_seen_at  = excluded.last_seen_at`,
+  ).run(
+    trimmed,
+    deviceName ?? null,
+    normalizeLocale(locale),
+    projectScope ? projectScope.join(',') : null,
+    now,
+    now,
+  );
 }
 
 export function removeToken(token: string): void {
@@ -131,14 +144,29 @@ export function removeToken(token: string): void {
 interface Device {
   token: string;
   locale: Locale;
+  /** Projects this device may hear about; `null` for an unrestricted one. */
+  scope: string[] | null;
 }
 
-function activeDevices(): Device[] {
-  const rows = db.prepare('SELECT token, locale FROM push_tokens').all() as {
-    token: string;
-    locale: string | null;
-  }[];
-  return rows.map((r) => ({ token: r.token, locale: normalizeLocale(r.locale) }));
+/**
+ * Devices to notify about a project.
+ *
+ * A restricted reader must not learn through a notification what the API
+ * refuses to show them — otherwise the whole restriction is undone by the one
+ * path that pushes rather than answers.
+ */
+function activeDevices(projectId?: string): Device[] {
+  const rows = db
+    .prepare('SELECT token, locale, project_scope FROM push_tokens')
+    .all() as { token: string; locale: string | null; project_scope: string | null }[];
+
+  return rows
+    .map((r) => ({
+      token: r.token,
+      locale: normalizeLocale(r.locale),
+      scope: r.project_scope ? r.project_scope.split(',').filter(Boolean) : null,
+    }))
+    .filter((d) => !projectId || !d.scope || d.scope.includes(projectId));
 }
 
 interface Prefs {
@@ -275,10 +303,13 @@ export function compose(
  * `build` is called once per device with that device's language, so a French
  * phone and an English one receive the same event worded differently.
  */
-async function broadcast(build: (device: Device) => FcmMessage | null): Promise<number> {
-  const devices = activeDevices();
+async function broadcast(
+  build: (device: Device) => FcmMessage | null,
+  projectId?: string,
+): Promise<number> {
+  const devices = activeDevices(projectId);
   if (devices.length === 0) {
-    console.warn('[push] nothing sent: no device registered');
+    console.warn('[push] nothing sent: no device registered for this project');
     return 0;
   }
 
@@ -361,7 +392,7 @@ export async function notifyEvent(event: EventRow, projectName: string): Promise
           amountBaseCents: event.amount_base_cents,
         },
       };
-    });
+    }, event.project_id);
     // Successes were silent, which made "did the server even send it?"
     // unanswerable from the logs when a notification arrived late.
     console.log(`[push] ${event.kind} ${event.project_id} #${event.id} -> ${sent} device(s)`);

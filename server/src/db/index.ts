@@ -95,6 +95,10 @@ function migrate(db: Database.Database): void {
     const pushColumns = (
       db.prepare('PRAGMA table_info(push_tokens)').all() as { name: string }[]
     ).map((c) => c.name);
+    if (!pushColumns.includes('project_scope')) {
+      db.exec('ALTER TABLE push_tokens ADD COLUMN project_scope TEXT');
+      console.log('[db] migration: push_tokens.project_scope column added');
+    }
     if (!pushColumns.includes('locale')) {
       db.exec("ALTER TABLE push_tokens ADD COLUMN locale TEXT NOT NULL DEFAULT 'en'");
       console.log('[db] migration: push_tokens.locale column added');

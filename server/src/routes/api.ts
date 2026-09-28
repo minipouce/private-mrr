@@ -215,7 +215,14 @@ export function registerApi(app: FastifyInstance): void {
       const token = request.body?.token;
       if (!token) return reply.code(400).send({ error: 'missing token' });
       try {
-        registerToken(token, request.body?.deviceName, request.body?.locale);
+        // The device inherits the scope of the token that registered it, so a
+        // restricted reader is only ever notified about their own projects.
+        registerToken(
+          token,
+          request.body?.deviceName,
+          request.body?.locale,
+          request.projectScope,
+        );
         return { ok: true };
       } catch (err) {
         return reply.code(400).send({ error: (err as Error).message });
