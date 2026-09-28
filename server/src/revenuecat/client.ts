@@ -3,6 +3,28 @@ import type { ProjectConfig } from '../config.js';
 /** Base of RevenueCat's REST API v2. A v1 key does not work against it. */
 const BASE = 'https://api.revenuecat.com/v2';
 
+/** Minimal shape of a v2 Subscription — only the fields the ledger needs. */
+export interface RcSubscription {
+  id: string;
+  customer_id?: string | null;
+  product_id?: string | null;
+  status?: string;
+  store?: string;
+  environment?: string;
+  starts_at?: number | null;
+  ends_at?: number | null;
+  current_period_starts_at?: number | null;
+  current_period_ends_at?: number | null;
+  auto_renewal_status?: string | null;
+  total_revenue_in_usd?: {
+    gross?: number;
+    commission?: number;
+    tax?: number;
+    proceeds?: number;
+    currency?: string;
+  } | null;
+}
+
 export interface OverviewMetrics {
   mrrCents: number | null;
   activeSubscriptions: number | null;
@@ -59,4 +81,35 @@ export async function overviewMetrics(project: ProjectConfig): Promise<OverviewM
     activeSubscriptions: value('active_subscriptions'),
     activeTrials: value('active_trials'),
   };
+}
+
+/**
+ * Walks every page of a v2 list endpoint.
+ *
+ * RevenueCat paginates with an absolute `next_page` URL. It is reduced back to
+ * a path so the caller never has to care, and the walk has no ceiling: a
+ * capped scan silently under-reports, which on a subscription base is the kind
+ * of error that looks like a business result.
+ */
+export async function* listAll(
+  project: ProjectConfig,
+  path: string,
+): AsyncGenerator<Record<string, unknown>> {
+  const rc = project.revenuecat;
+  if (!rc?.apiKey || !rc.projectId) return;
+
+  let next: string | null = path;
+  let guard = 0;
+
+  while (next && guard++ < 1000) {
+    const body: { items?: Record<string, unknown>[]; next_page?: string | null } | null =
+      await call(project, next);
+    if (!body) return;
+
+    for (const item of body.items ?? []) yield item;
+
+    next = body.next_page
+      ? body.next_page.replace(new RegExp(`^.*/v2/projects/${rc.projectId}`), '')
+      : null;
+  }
 }

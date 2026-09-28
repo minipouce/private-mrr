@@ -18,7 +18,8 @@
     "check-keys": "tsx src/cli/check-keys.ts",
     "check-i18n": "tsx src/cli/check-i18n.ts",
     "rc-key": "node scripts/set-revenuecat-key.mjs",
-    "rc-webhooks": "node scripts/show-revenuecat-webhooks.mjs"
+    "rc-webhooks": "node scripts/show-revenuecat-webhooks.mjs",
+    "backfill-rc": "tsx src/cli/backfill-revenuecat.ts"
   },
   "dependencies": {
     "@fastify/cors": "^11.0.1",
