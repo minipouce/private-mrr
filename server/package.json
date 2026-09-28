@@ -17,7 +17,8 @@
     "replay": "tsx src/cli/replay-webhook.ts",
     "check-keys": "tsx src/cli/check-keys.ts",
     "check-i18n": "tsx src/cli/check-i18n.ts",
-    "rc-key": "node scripts/set-revenuecat-key.mjs"
+    "rc-key": "node scripts/set-revenuecat-key.mjs",
+    "rc-webhooks": "node scripts/show-revenuecat-webhooks.mjs"
   },
   "dependencies": {
     "@fastify/cors": "^11.0.1",
