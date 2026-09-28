@@ -103,10 +103,53 @@ if (!key) {
   console.error('Rien saisi, fichier inchange.');
   process.exit(1);
 }
-if (!key.startsWith('sk_')) {
-  console.error("La cle ne commence pas par sk_ : ce n'est pas une cle v2 secrete. Fichier inchange.");
+if (/\s/.test(key) || key.length < 16) {
+  console.error('La saisie ne ressemble pas a une cle (espace, ou trop courte). Fichier inchange.');
   process.exit(1);
 }
+
+// The key is checked by using it, not by the shape of its prefix. A documented
+// prefix is a convention, and a convention is not an authority on what the
+// account actually issued — guessing one here once rejected a perfectly good
+// key. RevenueCat answering is the only proof that matters.
+const projectId = content.match(
+  new RegExp(`^PROJECT_${project.toUpperCase().replace(/[^A-Z0-9]+/g, '_')}_REVENUECAT_PROJECT_ID=(.*)$`, 'm'),
+)?.[1]?.trim();
+
+if (!projectId) {
+  console.error(`Aucun project id pour ${project} dans .env.real. Fichier inchange.`);
+  process.exit(1);
+}
+
+process.stdout.write('Verification aupres de RevenueCat... ');
+let response;
+try {
+  response = await fetch(`https://api.revenuecat.com/v2/projects/${projectId}/metrics/overview`, {
+    headers: { Authorization: `Bearer ${key}`, Accept: 'application/json' },
+    signal: AbortSignal.timeout(20_000),
+  });
+} catch (err) {
+  console.error(`\nRevenueCat injoignable (${err.message}). Fichier inchange.`);
+  process.exit(1);
+}
+
+if (!response.ok) {
+  const why = {
+    401: 'cle refusee : ce n\'est pas une cle secrete valide (une cle publique SDK ou une cle v1 ne marche pas)',
+    403: 'cle valide mais sans la permission de lire les metriques du projet',
+    404: `projet ${projectId} introuvable avec cette cle : verifie le project id, ou la cle appartient a un autre projet`,
+  }[response.status] ?? `reponse HTTP ${response.status}`;
+  console.error(`\n${why}. Fichier inchange.`);
+  process.exit(1);
+}
+
+const body = await response.json().catch(() => null);
+const metric = (id) => body?.metrics?.find((m) => m.id === id)?.value;
+console.log('acceptee.');
+console.log(
+  `  ${project} : ${metric('active_subscriptions') ?? '?'} abonnements actifs, ` +
+    `MRR ${metric('mrr') ?? '?'} (chiffres RevenueCat, bruts avant commission)`,
+);
 
 writeFileSync(FILE, content.replace(new RegExp(`^${variable}=.*$`, 'm'), `${variable}=${key}`));
 // `writeFileSync` only honours a mode when it creates the file; an existing one
