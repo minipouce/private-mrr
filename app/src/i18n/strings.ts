@@ -60,6 +60,10 @@ export const en = {
   churn: 'Churn',
   netThisMonth: 'Net this month',
   lastSixMonths: 'Last 6 months',
+  chartCash: 'Revenue',
+  chartMrr: 'MRR',
+  mrrHistoryNote:
+    'MRR at the close of each month, rebuilt from the subscriptions at the price they hold today.',
   projectsSection: 'Projects',
   recentActivity: 'Recent activity',
   seeAll: 'See all',
@@ -277,6 +281,10 @@ export const fr: Strings = {
   churn: 'Churn',
   netThisMonth: 'Net ce mois',
   lastSixMonths: '6 derniers mois',
+  chartCash: 'Revenus',
+  chartMrr: 'MRR',
+  mrrHistoryNote:
+    'MRR à la clôture de chaque mois, reconstitué depuis les abonnements au tarif qu\'ils portent aujourd\'hui.',
   projectsSection: 'Projets',
   recentActivity: 'Dernière activité',
   seeAll: 'Tout voir',

@@ -140,8 +140,12 @@ export interface DailyPoint {
 
 export interface MonthlyPoint {
   month: string;
+  /** Cash collected during the month. */
   cents: number;
+  /** MRR gained or lost over the month. */
   netMrrCents: number;
+  /** MRR as it stood when the month closed. Absent on an older server. */
+  mrrCents?: number;
 }
 
 export interface Subscriber {

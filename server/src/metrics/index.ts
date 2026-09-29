@@ -3,6 +3,7 @@ import { config } from '../config.js';
 import { MRR_STATUSES, AT_RISK_STATUSES, TRIAL_STATUSES } from '../stripe/normalize.js';
 import { hasLogo } from '../stripe/branding.js';
 import { globalGoal, goalProgress, type GoalKind } from '../lib/settings.js';
+import { monthlyNormalized, toBaseCents } from '../lib/money.js';
 import { forecast, type Forecast } from './forecast.js';
 import {
   sec,
@@ -170,10 +171,90 @@ export function dailySeries(days: number, projectId?: string, scope?: string[] |
   return series;
 }
 
+/** Statuses that never billed: they weigh nothing, today or in the past. */
+const NEVER_BILLED = new Set(['incomplete', 'incomplete_expired', 'trialing']);
+
+interface Cohort {
+  startedAt: number;
+  /** When it stopped billing; `null` while it still does. */
+  endedAt: number | null;
+  mrrCents: number;
+}
+
+/**
+ * Subscriptions as cohorts, so MRR can be read at a past date.
+ *
+ * The event ledger cannot answer this question. Its deltas only say what
+ * changed, and the hourly reconciliation corrects a stored price without
+ * emitting anything, so summing the deltas backwards drifts a little further
+ * with every correction. Walking the subscriptions themselves is anchored: the
+ * same function evaluated at today returns today's MRR to the cent.
+ *
+ * Two readings of the amount, because a cancelled subscription is zeroed:
+ * `mrr_base_cents` while it holds a figure (discounts already applied), and the
+ * price it was signed at once it no longer does.
+ */
+function mrrCohorts(projectId?: string, scope?: string[] | null): Cohort[] {
+  const f = projectFilter(projectId, scope);
+  const rows = db
+    .prepare(
+      `SELECT status, mrr_base_cents, amount_cents, currency, interval, interval_count,
+              started_at, canceled_at, updated_at
+       FROM subscriptions WHERE ${f.clause}`,
+    )
+    .all(...f.args) as {
+    status: string;
+    mrr_base_cents: number;
+    amount_cents: number;
+    currency: string;
+    interval: string;
+    interval_count: number;
+    started_at: number | null;
+    canceled_at: number | null;
+    updated_at: number;
+  }[];
+
+  const cohorts: Cohort[] = [];
+  for (const row of rows) {
+    if (row.started_at === null || NEVER_BILLED.has(row.status)) continue;
+
+    const mrrCents =
+      row.mrr_base_cents > 0
+        ? row.mrr_base_cents
+        : toBaseCents(
+            // The stored amount already carries the quantity: applying it again
+            // here would double a seat-based subscription.
+            monthlyNormalized(row.amount_cents, row.interval, row.interval_count, 1),
+            row.currency,
+          );
+    if (mrrCents <= 0) continue;
+
+    // A subscription set to stop at period end is billing today and carries a
+    // `canceled_at` in the past: still billing wins over the request date.
+    // Anything else that stopped without a date is closed at the moment we last
+    // saw it change, rather than left running forever.
+    const endedAt = MRR_STATUSES.includes(row.status)
+      ? null
+      : (row.canceled_at ?? row.updated_at);
+
+    cohorts.push({ startedAt: row.started_at, endedAt, mrrCents });
+  }
+  return cohorts;
+}
+
+function mrrAt(cohorts: readonly Cohort[], atSec: number): number {
+  let total = 0;
+  for (const c of cohorts) {
+    if (c.startedAt <= atSec && (c.endedAt === null || c.endedAt > atSec)) total += c.mrrCents;
+  }
+  return total;
+}
+
 /** Rolling monthly series over N months, with each month's net MRR. */
 export function monthlySeries(months: number, projectId?: string, scope?: string[] | null) {
-  const series: { month: string; cents: number; netMrrCents: number }[] = [];
+  const series: { month: string; cents: number; netMrrCents: number; mrrCents: number }[] = [];
   const now = new Date();
+  const cohorts = mrrCohorts(projectId, scope);
 
   for (let i = months - 1; i >= 0; i--) {
     const start = startOfMonth(addMonths(now, -i));
@@ -183,6 +264,9 @@ export function monthlySeries(months: number, projectId?: string, scope?: string
       month: label,
       cents: cashBetween(sec(start), sec(end), projectId, scope),
       netMrrCents: mrrMovement(sec(start), sec(end), projectId, scope).netCents,
+      // MRR as it stood when the month closed. The month under way is read at
+      // today, so the last bar matches the figure at the top of the screen.
+      mrrCents: mrrAt(cohorts, Math.min(sec(end), sec(now))),
     });
   }
   return series;
