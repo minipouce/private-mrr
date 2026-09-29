@@ -285,6 +285,10 @@ export interface ProjectMetrics {
   last30Cents: number;
   prevMonthCents: number;
   mtdVsPrevPct: number | null;
+  /** MRR as it stood when the previous month closed. */
+  prevMonthMrrCents: number;
+  /** Growth of the recurring base against that figure. `null` when it was zero. */
+  mrrVsPrevMonthPct: number | null;
   /** Subscribers actually paying: a billing subscription worth more than zero. */
   activeSubscribers: number;
   /** Billing but worth zero: comped, 100% coupon, free plan. */
@@ -325,6 +329,10 @@ function buildMetrics(
   );
 
   const mrr = currentMrr(projectId, scope);
+  // Same cohorts as the monthly chart, read at the first instant of this month:
+  // the recurring base as the previous month left it. The cash comparison below
+  // answers a different question and must not stand in for this one.
+  const prevMonthMrr = mrrAt(mrrCohorts(projectId, scope), sec(monthStart));
   const {
     activeSubscribers,
     compedSubscribers,
@@ -346,6 +354,9 @@ function buildMetrics(
     color,
     currency: config.baseCurrency,
     mrrCents: mrr,
+    prevMonthMrrCents: prevMonthMrr,
+    mrrVsPrevMonthPct:
+      prevMonthMrr > 0 ? ((mrr - prevMonthMrr) / prevMonthMrr) * 100 : null,
     arrCents: mrr * 12,
     todayCents: cashBetween(sec(startOfDay(now)), sec(now), projectId, scope),
     mtdCents: mtd,

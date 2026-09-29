@@ -77,12 +77,19 @@ export async function loadWidgetData(): Promise<WidgetData> {
     const data = (await res.json()) as Overview;
     const m = data.total;
 
+    // The figure on top is the MRR, so the variation under it has to be the
+    // MRR's. `mtdVsPrevPct` compares cash collected, which moves for reasons the
+    // recurring base never saw: an annual invoice, a refund, a late payment.
+    // It is kept only as the fallback for a server that predates the MRR one.
+    const mrrPct = m.mrrVsPrevMonthPct;
+    const pct = mrrPct === undefined ? m.mtdVsPrevPct : mrrPct;
+
     const fresh: WidgetData = {
       mrr: moneyCompact(m.mrrCents, m.currency),
       today: moneyCompact(m.todayCents, m.currency),
       mtd: moneyCompact(m.mtdCents, m.currency),
-      delta: m.mtdVsPrevPct !== null ? `${percent(m.mtdVsPrevPct)} ${t('widgetVsLastMonth')}` : null,
-      deltaPositive: (m.mtdVsPrevPct ?? 0) >= 0,
+      delta: pct !== null && pct !== undefined ? `${percent(pct)} ${t('widgetVsLastMonth')}` : null,
+      deltaPositive: (pct ?? 0) >= 0,
       updatedAt: t('widgetUpdatedAt', { time: stamp(new Date()) }),
     };
 

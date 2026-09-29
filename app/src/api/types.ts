@@ -99,6 +99,10 @@ export interface Metrics {
   last30Cents: number;
   prevMonthCents: number;
   mtdVsPrevPct: number | null;
+  /** MRR as it stood when the previous month closed. Absent on an older server. */
+  prevMonthMrrCents?: number;
+  /** Growth of the recurring base against that figure, `null` when it was zero. */
+  mrrVsPrevMonthPct?: number | null;
   /** Subscribers actually paying: a billing subscription worth more than zero. */
   activeSubscribers: number;
   trials: number;

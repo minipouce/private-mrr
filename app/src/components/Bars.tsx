@@ -16,13 +16,15 @@ type Mode = 'cash' | 'mrr';
 /**
  * Monthly histogram. The current month is highlighted, the others recede.
  *
- * Two readings of the same months: what came in, and what the MRR stood at when
- * each month closed. Cash is the default because it is the figure the rest of
- * the screen is built on; the recurring level answers a different question,
- * "where was I in June", which a cash bar cannot.
+ * Two readings of the same months: what the MRR stood at when each month closed,
+ * and what actually came in. The recurring level leads, because it is the
+ * question the chart is opened for, "where was I in June"; cash answers a
+ * different one and is a tap away.
  */
 export function Bars({ data, color = colors.accent, currency = 'eur' }: Props) {
-  const [mode, setMode] = useState<Mode>('cash');
+  // MRR first: the recurring base is the figure being steered on, and the cash
+  // view stays one tap away.
+  const [mode, setMode] = useState<Mode>('mrr');
   // A server older than this chart sends no MRR history: rather than draw an
   // empty second view, the switch simply does not appear.
   const hasMrr = data.some((point) => typeof point.mrrCents === 'number');
