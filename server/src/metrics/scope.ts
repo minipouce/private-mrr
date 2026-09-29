@@ -58,9 +58,19 @@ export function startOfYear(ref = new Date()): Date {
   return d;
 }
 
+/**
+ * Shifts a date by whole months, keeping the day of month inside the target.
+ *
+ * `setMonth` alone keeps the day and lets it overflow: asked for 29 February it
+ * answers 1 March. Walking a series back from the 29th of a month therefore
+ * skipped February and returned March twice.
+ */
 export function addMonths(ref: Date, n: number): Date {
   const d = new Date(ref);
+  const day = d.getDate();
+  d.setDate(1);
   d.setMonth(d.getMonth() + n);
+  d.setDate(Math.min(day, daysInMonth(d)));
   return d;
 }
 
