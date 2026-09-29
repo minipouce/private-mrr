@@ -12,6 +12,12 @@ import { globalGoal, setGlobalGoal, type GoalKind } from '../lib/settings.js';
 
 const clamp = (v: number, min: number, max: number) => Math.min(Math.max(v, min), max);
 
+/** Whether a project has a real source behind it: Stripe, a store, or both. */
+function isConnected(projectId: string): boolean {
+  const project = config.projectById.get(projectId);
+  return Boolean(project?.stripeKey) || Boolean(project?.revenuecat?.apiKey);
+}
+
 export function registerApi(app: FastifyInstance): void {
   app.get('/api/status', async () => {
     const events = db.prepare('SELECT COUNT(*) AS n FROM events').get() as { n: number };
@@ -41,16 +47,26 @@ export function registerApi(app: FastifyInstance): void {
       .map((p) => ({
         ...p,
       includedInTotals: p.include_in_totals === 1,
+      // The settings screen lists every project, hidden ones included: it is the
+      // only place from which one can be brought back into the dashboard.
+      visible: p.visible === 1,
       hasLogo: hasLogo(p.id),
-      // `connected` says a Stripe key is configured, without ever revealing it.
-      connected: Boolean(config.projectById.get(p.id)?.stripeKey),
+      // `connected` says a source is configured, without ever revealing the key.
+      // A store project has no Stripe key and is no less real for it: judging on
+      // Stripe alone labelled every mobile app a demo.
+      connected: isConnected(p.id),
       sync: syncById.get(p.id) ?? null,
     }));
   });
 
   app.put<{
     Params: { id: string };
-    Body: { include_in_totals?: boolean; goal_cents?: number | null; goal_kind?: string };
+    Body: {
+      include_in_totals?: boolean;
+      visible?: boolean;
+      goal_cents?: number | null;
+      goal_kind?: string;
+    };
   }>(
     '/api/projects/:id',
     async (request, reply) => {
@@ -60,6 +76,13 @@ export function registerApi(app: FastifyInstance): void {
       if (typeof request.body?.include_in_totals === 'boolean') {
         db.prepare('UPDATE projects SET include_in_totals = ? WHERE id = ?').run(
           request.body.include_in_totals ? 1 : 0,
+          request.params.id,
+        );
+      }
+
+      if (typeof request.body?.visible === 'boolean') {
+        db.prepare('UPDATE projects SET visible = ? WHERE id = ?').run(
+          request.body.visible ? 1 : 0,
           request.params.id,
         );
       }
@@ -84,7 +107,7 @@ export function registerApi(app: FastifyInstance): void {
       // and a partial response would blank out fields.
       const row = db
         .prepare(
-          `SELECT id, name, color, include_in_totals, goal_cents, goal_kind, created_at
+          `SELECT id, name, color, include_in_totals, visible, goal_cents, goal_kind, created_at
            FROM projects WHERE id = ?`,
         )
         .get(request.params.id) as Record<string, unknown>;
@@ -95,8 +118,9 @@ export function registerApi(app: FastifyInstance): void {
 
       return {
         ...row,
-        connected: Boolean(config.projectById.get(request.params.id)?.stripeKey),
+        connected: isConnected(request.params.id),
         includedInTotals: row.include_in_totals === 1,
+        visible: row.visible === 1,
         hasLogo: hasLogo(request.params.id),
         sync,
       };

@@ -287,7 +287,7 @@ function buildMetrics(
 export function overview(scope?: string[] | null) {
   const rows = db
     .prepare(
-      `SELECT id, name, color, include_in_totals, goal_cents, goal_kind
+      `SELECT id, name, color, include_in_totals, visible, goal_cents, goal_kind
        FROM projects ORDER BY name COLLATE NOCASE`,
     )
     .all() as {
@@ -295,6 +295,7 @@ export function overview(scope?: string[] | null) {
     name: string;
     color: string;
     include_in_totals: number;
+    visible: number;
     goal_cents: number | null;
     goal_kind: string;
   }[];
@@ -317,6 +318,9 @@ export function overview(scope?: string[] | null) {
       return {
         ...metrics,
         includedInTotals: p.include_in_totals === 1,
+        // A hidden project still travels: it weighs on the total, its events
+        // keep their logo in the feed, and only the dashboard list skips it.
+        visible: p.visible === 1,
         hasLogo: hasLogo(p.id),
         goal: goalProgress(goal, metrics.mrrCents),
       };

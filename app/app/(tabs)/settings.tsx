@@ -68,6 +68,23 @@ export default function Settings() {
     }
   };
 
+  const toggleVisible = async (projectId: string, current: boolean) => {
+    setProjects((prev) =>
+      prev.map((p) => (p.id === projectId ? { ...p, visible: !current } : p)),
+    );
+    try {
+      await api.setProjectVisible(projectId, !current);
+      // The dashboard reads the flag from the overview, so it has to be refetched
+      // for the project to leave or rejoin the list.
+      await refresh();
+    } catch {
+      setProjects((prev) =>
+        prev.map((p) => (p.id === projectId ? { ...p, visible: current } : p)),
+      );
+      Alert.alert(t('failed'), t('settingNotSaved'));
+    }
+  };
+
   const togglePref = async (
     projectId: string,
     key: 'notify_payments' | 'notify_signups' | 'notify_cancels' | 'notify_failures',
@@ -299,6 +316,11 @@ export default function Settings() {
                 }}
               />
               <View style={styles.prefSep} />
+              <PrefToggle
+                label={t('showInList')}
+                value={project.visible !== false}
+                onChange={() => toggleVisible(project.id, project.visible !== false)}
+              />
               <PrefToggle
                 label={t('countInTotal')}
                 value={project.includedInTotals !== false}

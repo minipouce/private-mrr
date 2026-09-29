@@ -117,6 +117,11 @@ export interface Metrics {
   lastEventAt: number | null;
   /** Present only in the overview's `projects` list. */
   includedInTotals?: boolean;
+  /**
+   * Shown in the dashboard list. Optional: a server older than this field sends
+   * nothing, and `undefined` must read as visible rather than hide everything.
+   */
+  visible?: boolean;
   hasLogo?: boolean;
   goal?: GoalProgress | null;
 }
@@ -169,6 +174,8 @@ export interface ProjectInfo {
   connected: boolean;
   /** Does this project count towards consolidated MRR and revenue? */
   includedInTotals: boolean;
+  /** Does it appear in the dashboard list? Settings shows it either way. */
+  visible?: boolean;
   /** Has a brand logo been fetched from Stripe? */
   hasLogo: boolean;
   /** Objectif de revenu en centimes, `null` si aucun. */

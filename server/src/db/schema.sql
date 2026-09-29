@@ -12,6 +12,10 @@ CREATE TABLE IF NOT EXISTS projects (
   -- Exclude a project from the consolidated total without ceasing to track it:
   -- useful for a test account, or a fully comped project that would skew it.
   include_in_totals INTEGER NOT NULL DEFAULT 1,
+  -- Show this project in the dashboard list. Independent of the total: a
+  -- project can weigh on the consolidated figures without cluttering the scroll,
+  -- and the settings screen always lists it so it can be brought back.
+  visible INTEGER NOT NULL DEFAULT 1,
   -- Last time the brand logo was fetched from Stripe.
   logo_updated_at INTEGER,
   -- Revenue goal, in cents of the base currency.

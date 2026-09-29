@@ -73,9 +73,14 @@ export default function Dashboard() {
 
   const m = overview.total;
   // The overview carries the per-project logo flag; activity rows refer to it.
+  // Built from every project, hidden ones included: an event keeps its logo even
+  // when its project has been taken out of the list below.
   const logoByProject = new Map(
     overview.projects.map((p) => [p.projectId ?? '', p.hasLogo ?? false]),
   );
+  // Hiding is a display choice made in the settings: the project keeps counting
+  // in the total and stays reachable, it simply leaves the scroll.
+  const shownProjects = overview.projects.filter((p) => p.visible !== false);
   const chartWidth = width - space.lg * 2 - space.lg * 2;
   const totalMrr = Math.max(m.mrrCents, 1);
   const movement = m.movement;
@@ -96,7 +101,7 @@ export default function Dashboard() {
         <View>
           <Text style={styles.eyebrow}>{t('consolidatedRevenue')}</Text>
           <Text style={styles.projectCount}>
-            {overview.projects.length} {plural(overview.projects.length, 'project', 'projects')}
+            {shownProjects.length} {plural(shownProjects.length, 'project', 'projects')}
           </Text>
         </View>
         <LiveBadge status={status} />
@@ -243,7 +248,7 @@ export default function Dashboard() {
 
       <SectionTitle>{t('projectsSection')}</SectionTitle>
       <View style={styles.projects}>
-        {[...overview.projects]
+        {[...shownProjects]
           .sort((a, b) => b.mrrCents - a.mrrCents)
           .map((project) => (
             <ProjectCard
@@ -253,6 +258,10 @@ export default function Dashboard() {
               onPress={() => router.push(`/project/${project.projectId}`)}
             />
           ))}
+        {/* Everything hidden at once looks like a bug, so it says otherwise. */}
+        {shownProjects.length === 0 && overview.projects.length > 0 && (
+          <Text style={styles.allHidden}>{t('allProjectsHidden')}</Text>
+        )}
       </View>
 
       <SectionTitle action={{ label: t('seeAll'), onPress: () => router.push('/activity') }}>
@@ -351,5 +360,6 @@ const styles = StyleSheet.create({
   netValue: { ...type.title, ...type.tabular, fontSize: 19 },
 
   projects: { gap: space.md },
+  allHidden: { ...type.caption, color: colors.textFaint, fontSize: 11.5, lineHeight: 16 },
   feed: { paddingHorizontal: space.sm, paddingVertical: space.xs },
 });

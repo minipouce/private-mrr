@@ -49,6 +49,10 @@ function migrate(db: Database.Database): void {
     db.exec('ALTER TABLE projects ADD COLUMN include_in_totals INTEGER NOT NULL DEFAULT 1');
     console.log('[db] migration: include_in_totals column added');
   }
+  if (projectColumns.length > 0 && !projectColumns.includes('visible')) {
+    db.exec('ALTER TABLE projects ADD COLUMN visible INTEGER NOT NULL DEFAULT 1');
+    console.log('[db] migration: visible column added');
+  }
   if (projectColumns.length > 0 && !projectColumns.includes('logo_updated_at')) {
     db.exec('ALTER TABLE projects ADD COLUMN logo_updated_at INTEGER');
     console.log('[db] migration: logo_updated_at column added');
@@ -117,8 +121,8 @@ export function syncProjectsFromConfig(): void {
   const upsert = db.prepare(`
     INSERT INTO projects (id, name, color, created_at)
     VALUES (@id, @name, @color, @now)
-    -- include_in_totals is deliberately absent from the update: it is a user
-    -- choice and must not be overwritten on every boot.
+    -- include_in_totals and visible are deliberately absent from the update:
+    -- they are user choices and must not be overwritten on every boot.
     ON CONFLICT(id) DO UPDATE SET name = @name, color = @color
   `);
   const ensurePrefs = db.prepare(
@@ -149,6 +153,7 @@ export interface ProjectRow {
   name: string;
   color: string;
   include_in_totals: number;
+  visible: number;
   logo_updated_at: number | null;
   goal_cents: number | null;
   goal_kind: string;

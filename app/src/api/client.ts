@@ -90,6 +90,12 @@ export const api = {
       body: JSON.stringify({ include_in_totals: included }),
     }),
 
+  setProjectVisible: (projectId: string, visible: boolean) =>
+    request<ProjectInfo>(`/api/projects/${encodeURIComponent(projectId)}`, {
+      method: 'PUT',
+      body: JSON.stringify({ visible }),
+    }),
+
   setProjectGoal: (projectId: string, cents: number | null, kind: 'mrr' | 'arr') =>
     request<ProjectInfo>(`/api/projects/${encodeURIComponent(projectId)}`, {
       method: 'PUT',
