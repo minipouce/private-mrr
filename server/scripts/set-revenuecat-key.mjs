@@ -10,8 +10,15 @@
  *
  * Replaces an existing value rather than appending a second line, so running it
  * again on the same project is how a key is rotated.
+ *
+ * An unknown project is created rather than refused. A secret key belongs to
+ * exactly one RevenueCat project, so the key itself answers every question the
+ * configuration used to ask by hand: the project id, and the name to show. The
+ * webhook secret is drawn here too, since it is ours to choose rather than
+ * RevenueCat's to issue.
  */
 import { readFileSync, writeFileSync, existsSync, chmodSync } from 'node:fs';
+import { randomBytes } from 'node:crypto';
 
 const project = process.argv[2];
 if (!project) {
@@ -25,12 +32,13 @@ if (!existsSync(FILE)) {
   process.exit(1);
 }
 
-const variable = `PROJECT_${project.toUpperCase().replace(/[^A-Z0-9]+/g, '_')}_REVENUECAT_KEY`;
-const content = readFileSync(FILE, 'utf8');
-if (!new RegExp(`^${variable}=`, 'm').test(content)) {
-  console.error(`La ligne ${variable}= n'existe pas dans .env.real`);
-  process.exit(1);
-}
+const slug = project.trim().toLowerCase();
+const prefix = `PROJECT_${slug.toUpperCase().replace(/[^A-Z0-9]+/g, '_')}`;
+const variable = `${prefix}_REVENUECAT_KEY`;
+let content = readFileSync(FILE, 'utf8');
+
+const valueOf = (name) => content.match(new RegExp(`^${name}=(.*)$`, 'm'))?.[1]?.trim() ?? '';
+const isKnown = new RegExp(`^${variable}=`, 'm').test(content);
 
 /**
  * Reads one line without echoing it.
@@ -112,13 +120,47 @@ if (/\s/.test(key) || key.length < 16) {
 // prefix is a convention, and a convention is not an authority on what the
 // account actually issued — guessing one here once rejected a perfectly good
 // key. RevenueCat answering is the only proof that matters.
-const projectId = content.match(
-  new RegExp(`^PROJECT_${project.toUpperCase().replace(/[^A-Z0-9]+/g, '_')}_REVENUECAT_PROJECT_ID=(.*)$`, 'm'),
-)?.[1]?.trim();
+let projectId = valueOf(`${prefix}_REVENUECAT_PROJECT_ID`);
+let discoveredName = '';
 
+// No project id on file: ask the key which project it belongs to. A secret key
+// is scoped to one project, so this listing answers with exactly that one.
 if (!projectId) {
-  console.error(`Aucun project id pour ${project} dans .env.real. Fichier inchange.`);
-  process.exit(1);
+  process.stdout.write('Identification du projet RevenueCat... ');
+  let listing;
+  try {
+    listing = await fetch('https://api.revenuecat.com/v2/projects?limit=20', {
+      headers: { Authorization: `Bearer ${key}`, Accept: 'application/json' },
+      signal: AbortSignal.timeout(20_000),
+    });
+  } catch (err) {
+    console.error(`\nRevenueCat injoignable (${err.message}). Fichier inchange.`);
+    process.exit(1);
+  }
+
+  if (!listing.ok) {
+    console.error(
+      listing.status === 401
+        ? "\ncle refusee : ce n'est pas une cle secrete v2 valide (une cle publique SDK ou une cle v1 ne marche pas). Fichier inchange."
+        : `\nreponse HTTP ${listing.status} en listant les projets. Fichier inchange.`,
+    );
+    process.exit(1);
+  }
+
+  const items = (await listing.json().catch(() => null))?.items ?? [];
+  if (items.length !== 1) {
+    console.error(
+      `\n${items.length} projet(s) derriere cette cle : impossible de choisir. ` +
+        `Renseigne ${prefix}_REVENUECAT_PROJECT_ID a la main. Fichier inchange.`,
+    );
+    process.exit(1);
+  }
+
+  // Stored without the `proj` prefix, as the other entries are. The API accepts
+  // either spelling, so this is only to keep the file reading uniformly.
+  projectId = String(items[0].id ?? '').replace(/^proj/, '');
+  discoveredName = String(items[0].name ?? '').trim();
+  console.log(`c'est "${discoveredName || projectId}".`);
 }
 
 process.stdout.write('Verification aupres de RevenueCat... ');
@@ -151,9 +193,65 @@ console.log(
     `MRR ${metric('mrr') ?? '?'} (chiffres RevenueCat, bruts avant commission)`,
 );
 
-writeFileSync(FILE, content.replace(new RegExp(`^${variable}=.*$`, 'm'), `${variable}=${key}`));
+const PALETTE = [
+  '#6366f1', '#10b981', '#f59e0b', '#ec4899', '#06b6d4',
+  '#8b5cf6', '#ef4444', '#14b8a6', '#f97316', '#a855f7',
+];
+
+/** First palette colour the file is not already using, so two projects differ. */
+function freeColor() {
+  const taken = new Set(
+    [...content.matchAll(/^PROJECT_[A-Z0-9_]+_COLOR="?(#[0-9a-fA-F]{6})"?$/gm)].map((m) =>
+      m[1].toLowerCase(),
+    ),
+  );
+  return PALETTE.find((c) => !taken.has(c.toLowerCase())) ?? PALETTE[0];
+}
+
+if (isKnown) {
+  content = content.replace(new RegExp(`^${variable}=.*$`, 'm'), `${variable}=${key}`);
+  if (!valueOf(`${prefix}_REVENUECAT_PROJECT_ID`)) {
+    content = content.replace(
+      new RegExp(`^${variable}=.*$`, 'm'),
+      `${prefix}_REVENUECAT_PROJECT_ID=${projectId}\n${variable}=${key}`,
+    );
+  }
+} else {
+  // A project RevenueCat knows but the configuration does not: write the whole
+  // block in one go. The webhook secret is drawn here rather than asked for,
+  // because it is the one secret in this file we get to choose.
+  const name = discoveredName || slug;
+  const webhookAuth = randomBytes(32).toString('hex');
+
+  const list = valueOf('PROJECTS');
+  const ids = list.split(',').map((p) => p.trim()).filter(Boolean);
+  if (!ids.includes(slug)) {
+    ids.push(slug);
+    content = content.replace(/^PROJECTS=.*$/m, `PROJECTS=${ids.join(',')}`);
+  }
+
+  content =
+    content.replace(/\s*$/, '\n') +
+    `\n# ${name} (RevenueCat)\n` +
+    `${prefix}_NAME="${name}"\n` +
+    `${prefix}_COLOR="${freeColor()}"\n` +
+    `${prefix}_REVENUECAT_PROJECT_ID=${projectId}\n` +
+    `${variable}=${key}\n` +
+    `${prefix}_REVENUECAT_WEBHOOK_AUTH=${webhookAuth}\n`;
+}
+
+writeFileSync(FILE, content);
 // `writeFileSync` only honours a mode when it creates the file; an existing one
 // keeps whatever it had, and a file of live keys has no business being readable
 // by anyone else on the machine.
 chmodSync(FILE, 0o600);
+
 console.log(`${variable} enregistree (${key.length} caracteres). La valeur n'a pas ete affichee.`);
+if (!isKnown) {
+  const base = (valueOf('PUBLIC_URL') || 'https://mrr.fibroweb.fr').replace(/\/+$/, '');
+  console.log(`Projet "${discoveredName || slug}" ajoute a PROJECTS sous l'identifiant ${slug}.`);
+  console.log(`\nIl reste le webhook, dans RevenueCat : Integrations -> Add webhook`);
+  console.log(`  URL          ${base}/webhooks/revenuecat/${slug}`);
+  console.log(`  Environment  Production`);
+  console.log(`  le secret de l'en-tete Authorization : npm run rc-webhooks`);
+}
