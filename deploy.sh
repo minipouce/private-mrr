@@ -41,7 +41,11 @@ rm -f /tmp/.env.prod /tmp/private-mrr-server.tar.gz
 echo "  .env and Firebase key written with mode 600"
 
 say "Building and starting the container"
-ssh -n "$TARGET" "cd $REMOTE_DIR && docker compose up -d --build"
+# --force-recreate, not just --build: when only .env changed, the image rebuilds
+# to something identical, compose sees no reason to replace the container, and
+# the old environment keeps running. A key rotated in .env would then appear
+# deployed while the server still answers with the previous one.
+ssh -n "$TARGET" "cd $REMOTE_DIR && docker compose up -d --build --force-recreate"
 
 say "Waiting for startup"
 for _ in $(seq 1 60); do
