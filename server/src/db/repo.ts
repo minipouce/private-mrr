@@ -110,6 +110,29 @@ export function refundedSoFar(projectId: string, chargeId: string): number {
   return row.total;
 }
 
+/**
+ * Whether a lifecycle event is already on the ledger for this subscription.
+ *
+ * The backfill's own ids are deterministic, so replaying it never duplicates
+ * what it wrote before. But a cancellation already booked by a live webhook
+ * carries Stripe's event id, which collides with nothing the backfill builds:
+ * a forced replay books the same churn a second time, at its original date, and
+ * the movement figures drift without anything looking wrong.
+ */
+export function hasMovementEvent(
+  projectId: string,
+  subscriptionId: string,
+  kind: EventKind,
+): boolean {
+  const row = db
+    .prepare(
+      `SELECT 1 FROM events
+       WHERE project_id = ? AND subscription_id = ? AND kind = ? LIMIT 1`,
+    )
+    .get(projectId, subscriptionId, kind);
+  return Boolean(row);
+}
+
 export interface SubscriptionRow {
   id: string;
   project_id: string;

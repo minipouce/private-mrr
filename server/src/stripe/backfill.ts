@@ -2,7 +2,7 @@ import type Stripe from 'stripe';
 import type { ProjectConfig } from '../config.js';
 import { stripeFor } from './client.js';
 import { db } from '../db/index.js';
-import { insertEvent, upsertSubscription, refundedSoFar } from '../db/repo.js';
+import { insertEvent, upsertSubscription, refundedSoFar, hasMovementEvent } from '../db/repo.js';
 import {
   eventFromCharge,
   eventFromInvoice,
@@ -111,7 +111,12 @@ export async function backfillProject(
       // account or an abandoned checkout.
       const mrrBase = await movementMrrBaseCents(stripe, project.id, sub);
 
-      if ((sub.start_date ?? sub.created) >= from) {
+      // A lifecycle already booked live must not be booked again: the two rows
+      // carry different ids, so nothing would stop them.
+      const known = (kind: 'subscription_created' | 'trial_started' | 'subscription_canceled') =>
+        hasMovementEvent(project.id, sub.id, kind);
+
+      if ((sub.start_date ?? sub.created) >= from && !known('subscription_created') && !known('trial_started')) {
         const created = eventFromSubscription(
           project.id,
           sub,
@@ -123,7 +128,7 @@ export async function backfillProject(
         if (insertEvent(created, { publish: false })) eventCount++;
       }
 
-      if (sub.canceled_at && sub.canceled_at >= from) {
+      if (sub.canceled_at && sub.canceled_at >= from && !known('subscription_canceled')) {
         const canceled = eventFromSubscription(
           project.id,
           sub,
