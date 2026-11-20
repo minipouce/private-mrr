@@ -7,3 +7,8 @@ data/
 *.log
 credentials/
 .env.real
+
+# SQLite databases, wherever a stray command drops one
+*.db
+*.db-wal
+*.db-shm

@@ -14,3 +14,8 @@ google-services.json
 *.log
 .DS_Store
 private-mrr-server.tar.gz
+
+# SQLite databases, wherever a stray command drops one
+*.db
+*.db-wal
+*.db-shm
