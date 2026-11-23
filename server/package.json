@@ -21,7 +21,8 @@
     "rc-key": "node scripts/set-revenuecat-key.mjs",
     "rc-webhooks": "node scripts/show-revenuecat-webhooks.mjs",
     "backfill-rc": "tsx src/cli/backfill-revenuecat.ts",
-    "rc-tidy": "tsx src/cli/tidy-revenuecat.ts"
+    "rc-tidy": "tsx src/cli/tidy-revenuecat.ts",
+    "rc-repair-net": "tsx src/cli/repair-revenuecat-net.ts"
   },
   "dependencies": {
     "@fastify/cors": "^11.0.1",

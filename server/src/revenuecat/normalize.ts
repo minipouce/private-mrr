@@ -91,10 +91,15 @@ export function moneyOf(event: RevenueCatEvent, project: ProjectConfig): Money |
     return null;
   }
 
-  const fromEvent =
-    typeof event.commission_percentage === 'number' ? event.commission_percentage : null;
+  // RevenueCat sends both as fractions (0.15 for 15 %), not as percentages.
+  // Reading 0.15 as 0.15 % kept 99.7 % of every store payment: 4,99 € booked as
+  // 4,97 € where 3,41 € actually reaches the bank. The configured fallback is in
+  // percent, so everything is brought to percent here, once.
+  const asPct = (v: unknown): number | null =>
+    typeof v === 'number' && Number.isFinite(v) ? (v <= 1 ? v * 100 : v) : null;
+  const fromEvent = asPct(event.commission_percentage);
   const commissionPct = fromEvent ?? project.revenuecat?.commissionPct ?? DEFAULT_COMMISSION_PCT;
-  const taxPct = typeof event.tax_percentage === 'number' ? event.tax_percentage : 0;
+  const taxPct = asPct(event.tax_percentage) ?? 0;
 
   // Both percentages apply to the price, not to one another: the store's own
   // formula is price − price×commission − price×tax.
