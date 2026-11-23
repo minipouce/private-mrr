@@ -9,6 +9,7 @@ import { refreshRates } from './lib/money.js';
 import { verifyKeys, liveProjects } from './stripe/client.js';
 import { backfillProject, reconcileProject } from './stripe/backfill.js';
 import { crossCheck } from './revenuecat/reconcile.js';
+import { expireLapsed, settleDuplicates } from './revenuecat/dedupe.js';
 import { markSyncError } from './stripe/ingest.js';
 import { readFileSync } from 'node:fs';
 import { isPushConfigured } from './push/index.js';
@@ -181,6 +182,8 @@ function scheduleJobs(): void {
         // counts is the only check there is.
         for (const project of config.projects) {
           if (!project.revenuecat?.apiKey) continue;
+          settleDuplicates(project.id);
+          expireLapsed(project.id);
           const gap = await crossCheck(project);
           markSyncError(project.id, gap);
         }

@@ -1,5 +1,6 @@
 import type { ProjectConfig } from '../config.js';
 import { insertEvent, getSubscription, upsertSubscription, type EventRow } from '../db/repo.js';
+import { supersede } from './dedupe.js';
 import { MRR_STATUSES } from '../stripe/normalize.js';
 import { notifyEvent } from '../push/index.js';
 import {
@@ -43,12 +44,37 @@ export async function ingestRevenueCat(
     return refunded;
   }
 
+  // An event naming neither a transaction nor a customer cannot be tied to any
+  // subscription. Recording one anyway created a row called 'inconnu' that
+  // every later anonymous event piled onto.
+  if (subId === 'inconnu') {
+    if (BILLING.has(event.type ?? '') && money && money.netBaseCents !== 0) {
+      return insertEvent(paymentFrom(project, event, money));
+    }
+    return null;
+  }
+
   const next = subscriptionFrom(project, event, money, previous);
-  const before = previous?.mrr_base_cents ?? 0;
+  const isBilling = MRR_STATUSES.includes(next.status);
+
+  // The same customer's subscription may already be on file under the id the
+  // backfill gave it. Retire that row and treat it as this one's past, or the
+  // renewal would count as a second subscriber.
+  const superseded = isBilling ? supersede(project.id, next.customer_id, next) : null;
+  if (superseded && next.mrr_base_cents === 0 && superseded.mrr_base_cents > 0) {
+    next.mrr_cents = superseded.mrr_cents;
+    next.mrr_base_cents = superseded.mrr_base_cents;
+    next.mrr_current_base_cents = superseded.mrr_current_base_cents;
+    next.amount_cents = superseded.amount_cents;
+    next.currency = superseded.currency;
+    next.interval = superseded.interval;
+    next.interval_count = superseded.interval_count;
+  }
+  const prior = previous ?? superseded ?? undefined;
+  const before = prior?.mrr_base_cents ?? 0;
   upsertSubscription(next);
 
-  const wasBilling = previous ? MRR_STATUSES.includes(previous.status) : false;
-  const isBilling = MRR_STATUSES.includes(next.status);
+  const wasBilling = prior ? MRR_STATUSES.includes(prior.status) : false;
 
   let row: EventRow | null = null;
 
@@ -64,7 +90,7 @@ export async function ingestRevenueCat(
   }
 
   // Then the movement, so the MRR history reads like the Stripe one.
-  const movement = !previous && next.status === 'trialing'
+  const movement = !prior && next.status === 'trialing'
     ? movementFrom(project, event, 'trial_started', 0)
     : !wasBilling && isBilling
       ? movementFrom(project, event, 'subscription_created', next.mrr_base_cents)

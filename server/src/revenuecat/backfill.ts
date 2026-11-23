@@ -1,4 +1,5 @@
 import type { ProjectConfig } from '../config.js';
+import type { SubscriptionRow } from '../db/repo.js';
 import { db } from '../db/index.js';
 import { upsertSubscription } from '../db/repo.js';
 import { toBaseCents } from '../lib/money.js';
@@ -101,6 +102,29 @@ export async function backfillRevenueCat(project: ProjectConfig): Promise<Backfi
       const months = monthsOf(periods.get(sub.product_id ?? '') ?? null, periodMs);
       const netUsdCents = Math.round(perPeriodProceeds(sub) * 100);
       const monthlyBase = trial ? 0 : toBaseCents(Math.round(netUsdCents / months), 'usd');
+
+      // A webhook may already follow this customer under the store's id. A
+      // second row would count them twice and never close, so the amount goes
+      // to that row when it has none, and nothing new is written.
+      const tracked = sub.customer_id
+        ? (db
+            .prepare(
+              `SELECT * FROM subscriptions WHERE project_id = ? AND source = 'revenuecat'
+                 AND customer_id = ? AND id <> ? AND status IN ('active','past_due','trialing')
+               LIMIT 1`,
+            )
+            .get(project.id, sub.customer_id, sub.id) as SubscriptionRow | undefined)
+        : undefined;
+      if (tracked) {
+        if (live && tracked.mrr_base_cents === 0 && monthlyBase > 0) {
+          db.prepare(
+            `UPDATE subscriptions SET mrr_cents = ?, mrr_base_cents = ?, mrr_current_base_cents = ?,
+               amount_cents = ?, currency = 'usd' WHERE project_id = ? AND id = ?`,
+          ).run(monthlyBase, monthlyBase, monthlyBase, netUsdCents, project.id, tracked.id);
+        }
+        if (live) { out.live++; out.mrrBaseCents += tracked.mrr_base_cents || monthlyBase; }
+        continue;
+      }
 
       if (live) { out.live++; out.mrrBaseCents += monthlyBase; }
 

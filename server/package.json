@@ -20,7 +20,8 @@
     "stripe-key": "node scripts/set-stripe-key.mjs",
     "rc-key": "node scripts/set-revenuecat-key.mjs",
     "rc-webhooks": "node scripts/show-revenuecat-webhooks.mjs",
-    "backfill-rc": "tsx src/cli/backfill-revenuecat.ts"
+    "backfill-rc": "tsx src/cli/backfill-revenuecat.ts",
+    "rc-tidy": "tsx src/cli/tidy-revenuecat.ts"
   },
   "dependencies": {
     "@fastify/cors": "^11.0.1",
