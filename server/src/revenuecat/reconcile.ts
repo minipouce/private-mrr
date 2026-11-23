@@ -24,7 +24,10 @@ export async function crossCheck(project: ProjectConfig): Promise<string | null>
     .prepare(
       `SELECT COALESCE(SUM(mrr_base_cents), 0) AS mrr, COUNT(*) AS n
        FROM subscriptions
-       WHERE project_id = ? AND source = 'revenuecat' AND status IN (${MRR_LIST})`,
+       WHERE project_id = ? AND source = 'revenuecat' AND status IN (${MRR_LIST})
+         -- A promotional grant is access, not a subscription RevenueCat counts:
+         -- comparing it made two free lifetime grants look like missed churn.
+         AND mrr_base_cents > 0`,
     )
     .get(project.id) as { mrr: number; n: number };
 
